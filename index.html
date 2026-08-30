@@ -302,19 +302,45 @@ function FView({fd:fdata,fn,ft,fu,files}){
     </div>}
   </div>;
 }
+function readFileData_(blob,name,type,originalSize){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=ev=>resolve({data:ev.target.result.split(',')[1],name,type:type||'application/octet-stream',size:blob.size,originalSize:originalSize||blob.size});
+    reader.onerror=reject;reader.readAsDataURL(blob);
+  });
+}
+function prepareUploadFile_(file){
+  if(!String(file.type||'').startsWith('image/'))return readFileData_(file,file.name,file.type,file.size);
+  return new Promise(resolve=>{
+    const img=new Image();const objectUrl=URL.createObjectURL(file);
+    img.onload=()=>{
+      try{
+        const maxDimension=1600;
+        const scale=Math.min(1,maxDimension/Math.max(img.width,img.height));
+        const canvas=document.createElement('canvas');
+        canvas.width=Math.max(1,Math.round(img.width*scale));canvas.height=Math.max(1,Math.round(img.height*scale));
+        canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+        canvas.toBlob(async blob=>{
+          URL.revokeObjectURL(objectUrl);
+          if(!blob){resolve(await readFileData_(file,file.name,file.type,file.size));return;}
+          const base=file.name.replace(/\.[^.]+$/,'')||'photo';
+          resolve(await readFileData_(blob,base+'.jpg','image/jpeg',file.size));
+        },'image/jpeg',0.78);
+      }catch(e){URL.revokeObjectURL(objectUrl);readFileData_(file,file.name,file.type,file.size).then(resolve);}
+    };
+    img.onerror=()=>{URL.revokeObjectURL(objectUrl);readFileData_(file,file.name,file.type,file.size).then(resolve);};
+    img.src=objectUrl;
+  });
+}
 function useFiles(){
   const [files,setFiles]=useState([]);
   const handle=e=>{
     const selected=Array.from(e.target.files||[]);
     if(!selected.length)return;
     if(files.length+selected.length>20){alert('එක letter එකකට photos/files 20ක් දක්වා එකතු කළ හැකියි.');e.target.value='';return;}
-    const tooLarge=selected.find(f=>f.size>10*1024*1024);
-    if(tooLarge){alert(tooLarge.name+' file එක 10MB ට වඩා විශාලයි.');e.target.value='';return;}
-    Promise.all(selected.map(file=>new Promise((resolve,reject)=>{
-      const reader=new FileReader();
-      reader.onload=ev=>resolve({data:ev.target.result.split(',')[1],name:file.name,type:file.type||'application/octet-stream',size:file.size});
-      reader.onerror=reject;reader.readAsDataURL(file);
-    }))).then(newFiles=>setFiles(previous=>[...previous,...newFiles])).catch(()=>alert('Files read කළ නොහැකි විය.'));
+    const tooLarge=selected.find(f=>String(f.type||'').startsWith('image/')?f.size>25*1024*1024:f.size>10*1024*1024);
+    if(tooLarge){alert(tooLarge.name+' file එක upload limit එකට වඩා විශාලයි.');e.target.value='';return;}
+    Promise.all(selected.map(prepareUploadFile_)).then(newFiles=>setFiles(previous=>[...previous,...newFiles])).catch(()=>alert('Files process කළ නොහැකි විය.'));
     e.target.value='';
   };
   return [files,setFiles,handle];
@@ -987,9 +1013,15 @@ function App(){
     const pending=Array.isArray(l.files)&&l.files.length?l.files:(l.fd?[{data:l.fd,name:l.fn,type:l.ft}]:[]);
     if(!pending.length||!gasUrl)return l;
     const uploaded=[];
-    for(const file of pending){
-      const r=await gasCall(gasUrl,'upload',{fileData:file.data,fileName:file.name,fileType:file.type},30000);
-      if(r?.ok&&r.url)uploaded.push({name:r.name||file.name,type:file.type,url:r.url,id:r.id});
+    const letterDate=String(l.dr||l.ds||new Date().toISOString().slice(0,10)).slice(0,10);
+    const safeRef=String(l.ref||'Letter').replace(/[^A-Za-z0-9_-]/g,'_');
+    for(let i=0;i<pending.length;i++){
+      const file=pending[i];
+      const originalExt=(String(file.name||'').match(/\.([A-Za-z0-9]+)$/)||[])[1]||'bin';
+      const ext=String(file.type||'').startsWith('image/')?'jpg':originalExt.toLowerCase();
+      const standardName=`${letterDate}_${safeRef}_${String(i+1).padStart(2,'0')}.${ext}`;
+      const r=await gasCall(gasUrl,'upload',{fileData:file.data,fileName:standardName,fileType:file.type},30000);
+      if(r?.ok&&r.url)uploaded.push({name:r.name||standardName,type:file.type,url:r.url,id:r.id,size:file.size,originalSize:file.originalSize});
     }
     if(uploaded.length!==pending.length)alert((pending.length-uploaded.length)+' file(s) Google Drive වෙත upload කළ නොහැකි විය.');
     return {...l,files:uploaded,fn:uploaded[0]?.name,ft:uploaded[0]?.type,fu:uploaded[0]?.url,fd:undefined};
