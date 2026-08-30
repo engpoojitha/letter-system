@@ -151,7 +151,7 @@ function ldState(){try{const s=localStorage.getItem(SK);if(s)return JSON.parse(s
 function svState(s){try{localStorage.setItem(SK,JSON.stringify(s));}catch{}}
 function ldSess(){try{const s=localStorage.getItem(SSK);if(s)return JSON.parse(s);}catch{}return null;}
 function svSess(u){try{u?localStorage.setItem(SSK,JSON.stringify(u)):localStorage.removeItem(SSK);}catch{}}
-function ldGAS(){return localStorage.getItem(GAS_KEY)||DEFAULT_GAS_URL;}
+function ldGAS(){localStorage.setItem(GAS_KEY,DEFAULT_GAS_URL);return DEFAULT_GAS_URL;}
 function svGAS(url){localStorage.setItem(GAS_KEY,url);}
 
 function mkRef(t,c){
