@@ -250,26 +250,47 @@ function Mod({title,onClose,children,wide}){
     </div>
   </div>;
 }
-function FView({fd:fdata,fn,ft,fu}){
-  if(fu)return <div style={{marginTop:11,padding:'10px 12px',background:'#f5f5f5',border:'1px solid #ddd',borderRadius:6}}>
-    <span style={{fontSize:12,color:'#555',marginRight:12}}>📎 {fn||'ගොනුව'}</span>
-    <a href={fu} target="_blank" rel="noopener noreferrer" style={{color:'#005bb5',fontSize:12,fontWeight:600,textDecoration:'none'}}>Google Drive හි විවෘත කරන්න ↗</a>
-  </div>;
-  if(!fdata)return null;
-  const src=`data:${ft};base64,${fdata}`;
-  return <div style={{marginTop:11,border:'1px solid #ddd',borderRadius:6,overflow:'hidden'}}>
-    {ft?.startsWith('image/')&&<img src={src} alt={fn} style={{maxWidth:'100%',display:'block'}}/>}
-    {ft==='application/pdf'&&<iframe src={src} style={{width:'100%',height:380,border:'none'}} title={fn}/>}
-    <div style={{padding:'7px 12px',background:'#f5f5f5',display:'flex',gap:10,alignItems:'center'}}>
-      <span style={{fontSize:12,color:'#555'}}>📎 {fn}</span>
-      <a href={src} download={fn} style={{color:'#005bb5',fontSize:12,fontWeight:600,textDecoration:'none'}}>⬇ Download</a>
+function FView({fd:fdata,fn,ft,fu,files}){
+  const items=(Array.isArray(files)&&files.length?files:[(fu||fdata)?{name:fn||'ගොනුව',type:ft||'',url:fu,data:fdata}:null]).filter(Boolean);
+  if(!items.length)return null;
+  return <div style={{marginTop:12}}>
+    <div style={{fontSize:12,fontWeight:700,color:'#444',marginBottom:7}}>📎 Attachments ({items.length})</div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:10}}>
+      {items.map((file,i)=>{
+        const isImage=(file.type||'').startsWith('image/');
+        const localSrc=file.data?`data:${file.type};base64,${file.data}`:null;
+        const thumb=file.id?`https://drive.google.com/thumbnail?id=${file.id}&sz=w600`:localSrc;
+        const openUrl=file.url||localSrc;
+        return <div key={(file.id||file.name||'file')+i} style={{border:'1px solid #d8dfeb',borderRadius:8,overflow:'hidden',background:'#fff'}}>
+          {isImage&&thumb?<a href={openUrl} target="_blank" rel="noopener noreferrer"><img src={thumb} alt={file.name} loading="lazy" style={{width:'100%',height:130,objectFit:'cover',display:'block',background:'#eef2f7'}}/></a>:
+          <div style={{height:90,display:'flex',alignItems:'center',justifyContent:'center',fontSize:34,background:'#f4f6fa'}}>{(file.type||'').includes('pdf')?'📕':'📄'}</div>}
+          <div style={{padding:8}}>
+            <div title={file.name} style={{fontSize:11,fontWeight:600,color:'#333',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginBottom:6}}>{file.name||'File'}</div>
+            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+              {openUrl&&<a href={openUrl} target="_blank" rel="noopener noreferrer" className="btn bp bsm" style={{textDecoration:'none'}}>View</a>}
+              {localSrc&&<a href={localSrc} download={file.name} className="btn bs bsm" style={{textDecoration:'none'}}>Download</a>}
+            </div>
+          </div>
+        </div>;
+      })}
     </div>
   </div>;
 }
-function useFile(){
-  const [f,sf]=useState(null);
-  const h=e=>{const fl=e.target.files?.[0];if(!fl)return;const r=new FileReader();r.onload=ev=>sf({data:ev.target.result.split(',')[1],name:fl.name,type:fl.type});r.readAsDataURL(fl);};
-  return [f,sf,h];
+function useFiles(){
+  const [files,setFiles]=useState([]);
+  const handle=e=>{
+    const selected=Array.from(e.target.files||[]);
+    if(!selected.length)return;
+    if(selected.length>10){alert('වරකට files 10ක් දක්වා upload කරන්න.');e.target.value='';return;}
+    const tooLarge=selected.find(f=>f.size>10*1024*1024);
+    if(tooLarge){alert(tooLarge.name+' file එක 10MB ට වඩා විශාලයි.');e.target.value='';return;}
+    Promise.all(selected.map(file=>new Promise((resolve,reject)=>{
+      const reader=new FileReader();
+      reader.onload=ev=>resolve({data:ev.target.result.split(',')[1],name:file.name,type:file.type||'application/octet-stream',size:file.size});
+      reader.onerror=reject;reader.readAsDataURL(file);
+    }))).then(setFiles).catch(()=>alert('Files read කළ නොහැකි විය.'));
+  };
+  return [files,setFiles,handle];
 }
 
 // ── LOGIN ─────────────────────────────────────────────────────────────────────
@@ -348,7 +369,7 @@ function SCard({label,value,color,onClick}){
 // ── UPLOAD IN FORM ────────────────────────────────────────────────────────────
 function UpInForm({user,onClose,state,onSave,allUsers}){
   const [f,sf]=useState({dr:new Date().toISOString().slice(0,10),from:'',fromO:'',to:'',toO:'',subj:'',desc:'',asgn:[]});
-  const [fl,,hf]=useFile();
+  const [fl,,hf]=useFiles();
   const set=(k,v)=>sf(x=>({...x,[k]:v}));
   const tog=u=>sf(x=>({...x,asgn:x.asgn.includes(u)?x.asgn.filter(a=>a!==u):[...x.asgn,u]}));
   const assignable=allUsers.filter(u=>u.active&&u.u!=='DE');
@@ -359,7 +380,7 @@ function UpInForm({user,onClose,state,onSave,allUsers}){
     const frm=f.from==='Others'?f.fromO:f.from;
     const to=f.to==='Others'?f.toO:f.to;
     const asgn=f.asgn.map(u=>({u,d:allUsers.find(x=>x.u===u).d,s:'pending',seen:null}));
-    onSave({id:crypto.randomUUID(),ref,dr,du:new Date().toISOString(),by:user.u,from:frm,to:to||'DE',subj:f.subj,desc:f.desc,fd:fl?.data,fn:fl?.name,ft:fl?.type,asgn,status:user.r==='DE'?'de_reviewed':'pending_de',note:''});
+    onSave({id:crypto.randomUUID(),ref,dr,du:new Date().toISOString(),by:user.u,from:frm,to:to||'DE',subj:f.subj,desc:f.desc,files:fl,asgn,status:user.r==='DE'?'de_reviewed':'pending_de',note:''});
     onClose();
   };
   return <div>
@@ -376,7 +397,7 @@ function UpInForm({user,onClose,state,onSave,allUsers}){
       <div className="fg" style={{gridColumn:'span 2'}}><label className="flb">Subject *</label><input className="fi" value={f.subj} onChange={e=>set('subj',e.target.value)}/></div>
     </div>
     <div className="fg"><label className="flb">Description</label><textarea className="fi" style={{height:65,resize:'vertical'}} value={f.desc} onChange={e=>set('desc',e.target.value)}/></div>
-    <div className="fg"><label className="flb">Attach File</label><input type="file" onChange={hf} accept="image/*,.pdf,.doc,.docx" style={{marginTop:4}}/>{fl&&<div style={{fontSize:12,color:'#27ae60',marginTop:4}}>✅ {fl.name}</div>}</div>
+    <div className="fg"><label className="flb">Attach Photos / Documents (up to 10)</label><input type="file" multiple onChange={hf} accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style={{marginTop:4}}/>{fl.length>0&&<div style={{marginTop:7,display:'flex',flexWrap:'wrap',gap:6}}>{fl.map((x,i)=><span key={i} className="chip">✅ {x.name}</span>)}</div>}</div>
     {user.r==='DE'&&<div className="fg"><label className="flb">Assign To</label>
       <div style={{display:'flex',flexWrap:'wrap',marginTop:5}}>
         {assignable.map(a=><label key={a.u} className={`at${f.asgn.includes(a.u)?' sel':''}`}><input type="checkbox" checked={f.asgn.includes(a.u)} onChange={()=>tog(a.u)} style={{margin:0}}/> {a.d}</label>)}
@@ -391,13 +412,13 @@ function UpInForm({user,onClose,state,onSave,allUsers}){
 
 function UpOutForm({user,onClose,state,onSave}){
   const [f,sf]=useState({ds:new Date().toISOString().slice(0,10),subj:'',to:'',toO:'',desc:''});
-  const [fl,,hf]=useFile();
+  const [fl,,hf]=useFiles();
   const set=(k,v)=>sf(x=>({...x,[k]:v}));
   const sub=()=>{
     if(!f.subj||!f.to){alert('Fill required fields.');return;}
     const ds=f.ds||new Date().toISOString().slice(0,10);
     const ref=mkRef('Out',state.outC);
-    onSave({id:crypto.randomUUID(),ref,ds,du:new Date().toISOString(),by:user.u,from:'DE Battaramulla',to:f.to==='Others'?f.toO:f.to,subj:f.subj,desc:f.desc,fd:fl?.data,fn:fl?.name,ft:fl?.type});
+    onSave({id:crypto.randomUUID(),ref,ds,du:new Date().toISOString(),by:user.u,from:'DE Battaramulla',to:f.to==='Others'?f.toO:f.to,subj:f.subj,desc:f.desc,files:fl});
     onClose();
   };
   return <div>
@@ -411,7 +432,7 @@ function UpOutForm({user,onClose,state,onSave}){
       <div className="fg" style={{gridColumn:'span 2'}}><label className="flb">Subject *</label><input className="fi" value={f.subj} onChange={e=>set('subj',e.target.value)}/></div>
     </div>
     <div className="fg"><label className="flb">Description</label><textarea className="fi" style={{height:65,resize:'vertical'}} value={f.desc} onChange={e=>set('desc',e.target.value)}/></div>
-    <div className="fg"><label className="flb">Attach File</label><input type="file" onChange={hf} accept="image/*,.pdf,.doc,.docx" style={{marginTop:4}}/>{fl&&<div style={{fontSize:12,color:'#27ae60',marginTop:4}}>✅ {fl.name}</div>}</div>
+    <div className="fg"><label className="flb">Attach Photos / Documents (up to 10)</label><input type="file" multiple onChange={hf} accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style={{marginTop:4}}/>{fl.length>0&&<div style={{marginTop:7,display:'flex',flexWrap:'wrap',gap:6}}>{fl.map((x,i)=><span key={i} className="chip">✅ {x.name}</span>)}</div>}</div>
     <div className="fr" style={{justifyContent:'flex-end'}}>
       <button className="btn bs" onClick={onClose}>Cancel</button>
       <button className="btn bp" onClick={sub}>Upload Out Letter</button>
@@ -461,7 +482,7 @@ function InModal({letter,user,onClose,onUpdate,allUsers}){
     </div>
     <Fld l="Subject" v={letter.subj}/>
     {letter.desc&&<Fld l="Description" v={letter.desc}/>}
-    <FView fd={letter.fd} fn={letter.fn} ft={letter.ft} fu={letter.fu}/>
+    <FView fd={letter.fd} fn={letter.fn} ft={letter.ft} fu={letter.fu} files={letter.files}/>
 
     {(isDE||letter.note)&&<div className="na">
       <div style={{fontWeight:700,color:'#003580',marginBottom:7,fontSize:13}}>📝 DE Note / Instructions</div>
@@ -525,7 +546,7 @@ function OutModal({letter,onClose}){
     </div>
     <Fld l="Subject" v={letter.subj}/>
     {letter.desc&&<Fld l="Description" v={letter.desc}/>}
-    <FView fd={letter.fd} fn={letter.fn} ft={letter.ft} fu={letter.fu}/>
+    <FView fd={letter.fd} fn={letter.fn} ft={letter.ft} fu={letter.fu} files={letter.files}/>
   </Mod>;
 }
 
@@ -908,11 +929,15 @@ function App(){
     }finally{syncingRef.current=false;}
   };
   const uploadToDrive=async l=>{
-    if(!l.fd||!gasUrl)return l;
-    const r=await gasCall(gasUrl,'upload',{fileData:l.fd,fileName:l.fn,fileType:l.ft});
-    if(r?.ok&&r.url)return {...l,fu:r.url,fd:undefined};
-    alert('Google Drive වෙත ගොනුව උඩුගත කළ නොහැකි විය. දත්ත ගොනුව නොමැතිව සුරකින ලදී.');
-    return {...l,fd:undefined};
+    const pending=Array.isArray(l.files)&&l.files.length?l.files:(l.fd?[{data:l.fd,name:l.fn,type:l.ft}]:[]);
+    if(!pending.length||!gasUrl)return l;
+    const uploaded=[];
+    for(const file of pending){
+      const r=await gasCall(gasUrl,'upload',{fileData:file.data,fileName:file.name,fileType:file.type},30000);
+      if(r?.ok&&r.url)uploaded.push({name:r.name||file.name,type:file.type,url:r.url,id:r.id});
+    }
+    if(uploaded.length!==pending.length)alert((pending.length-uploaded.length)+' file(s) Google Drive වෙත upload කළ නොහැකි විය.');
+    return {...l,files:uploaded,fn:uploaded[0]?.name,ft:uploaded[0]?.type,fu:uploaded[0]?.url,fd:undefined};
   };
   const addIn=async l=>{const n=await uploadToDrive(l);const stamped={...n,_syncUpdatedAt:Date.now()};await sv({...state,inL:[...state.inL,stamped],inC:state.inC+1});};
   const updIn=(id,p)=>sv({...state,inL:state.inL.map(l=>l.id===id?{...l,...p,_syncUpdatedAt:Date.now()}:l)});
