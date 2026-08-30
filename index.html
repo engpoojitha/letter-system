@@ -261,11 +261,15 @@ function useFile(){
 
 // ── LOGIN ─────────────────────────────────────────────────────────────────────
 function LoginPage({onLogin}){
-  const [u,su]=useState('');const [p,sp]=useState('');const [e,se]=useState('');
-  const go=()=>{
-    const users=ldUsers();
-    const usr=users.find(x=>x.active&&x.u===u.trim().toUpperCase()&&x.p===p.trim());
-    if(usr){se('');onLogin(usr);}else se('Invalid username or password.');
+  const [u,su]=useState('');const [p,sp]=useState('');const [e,se]=useState('');const [working,setWorking]=useState(false);
+  const go=async()=>{
+    if(working)return;
+    if(!u.trim()||!p.trim()){se('Username සහ password ඇතුළත් කරන්න.');return;}
+    setWorking(true);se('');
+    const r=await gasCall(DEFAULT_GAS_URL,'login',{username:u.trim(),password:p});
+    setWorking(false);
+    if(r?.ok&&r.user&&r.token)onLogin({...r.user,token:r.token});
+    else se(r?.error||'Login failed. Internet connection එක පරීක්ෂා කරන්න.');
   };
   return <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#001f5b,#003580,#005bb5)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:16}}>
     <div style={{background:'#fff',borderRadius:12,boxShadow:'0 20px 60px rgba(0,0,0,.4)',maxWidth:420,width:'100%',overflow:'hidden'}}>
@@ -278,7 +282,7 @@ function LoginPage({onLogin}){
         <div className="fg"><label className="flb">Username</label><input className="fi" value={u} onChange={e=>su(e.target.value)} onKeyDown={e=>e.key==='Enter'&&go()} placeholder="e.g. DE, CC, MO1…"/></div>
         <div className="fg"><label className="flb">Password</label><input className="fi" type="password" value={p} onChange={e=>sp(e.target.value)} onKeyDown={e=>e.key==='Enter'&&go()}/></div>
         {e&&<div className="ab ae">{e}</div>}
-        <button className="btn bp" style={{width:'100%',padding:'10px'}} onClick={go}>Sign In</button>
+        <button className="btn bp" style={{width:'100%',padding:'10px'}} onClick={go} disabled={working}>{working?'Signing in…':'Sign In'}</button>
       </div>
     </div>
     <div style={{color:'rgba(255,255,255,.4)',fontSize:11,marginTop:16}}>© 2026 Divisional Engineer's Office, Battaramulla</div>
@@ -681,26 +685,27 @@ function UsersPage({allUsers,onSaveUsers}){
   const [msg,setMsg]=useState('');
   const [pwdModal,setPwdModal]=useState(null); // user being changed password
   const [newPwd,setNewPwd]=useState('');
+  useEffect(()=>setUsers(allUsers),[allUsers]);
 
-  const saveAll=(u)=>{setUsers(u);onSaveUsers(u);};
+  const saveAll=(u,mutation)=>{setUsers(u);onSaveUsers(u,mutation);};
   const toggleActive=(username)=>{
     if(username==='DE'){alert('Cannot deactivate DE.');return;}
-    saveAll(users.map(u=>u.u===username?{...u,active:!u.active}:u));
+    saveAll(users.map(u=>u.u===username?{...u,active:!u.active}:u),{type:'toggle',username});
   };
   const deleteUser=(username)=>{
     if(username==='DE'){alert('Cannot delete DE.');return;}
     if(!confirm(`Delete user ${username}?`))return;
-    saveAll(users.filter(u=>u.u!==username));
+    saveAll(users.filter(u=>u.u!==username),{type:'delete',username});
   };
   const addUser=()=>{
     if(!newU.u||!newU.p||!newU.d){setMsg('Fill all fields.');return;}
     if(users.find(u=>u.u===newU.u.toUpperCase())){setMsg('Username already exists.');return;}
-    saveAll([...users,{...newU,u:newU.u.toUpperCase(),active:true}]);
+    saveAll([...users,{...newU,u:newU.u.toUpperCase(),active:true}],{type:'add',user:{...newU,u:newU.u.toUpperCase(),active:true}});
     setNewU({u:'',p:'',d:'',r:'MO',active:true});setShowAdd(false);setMsg('');
   };
   const changePwd=()=>{
     if(!newPwd||newPwd.length<4){setMsg('Password must be at least 4 characters.');return;}
-    saveAll(users.map(u=>u.u===pwdModal.u?{...u,p:newPwd}:u));
+    saveAll(users.map(u=>u.u===pwdModal.u?{...u,p:'********'}:u),{type:'password',username:pwdModal.u,password:newPwd});
     setPwdModal(null);setNewPwd('');setMsg('');
   };
 
@@ -716,7 +721,7 @@ function UsersPage({allUsers,onSaveUsers}){
         <td><strong style={{color:'#003580'}}>{u.u}</strong></td>
         <td>{u.d}</td>
         <td><span className="chip">{u.r}</span></td>
-        <td><span style={{fontFamily:'monospace',fontSize:12,color:'#888'}}>{'•'.repeat(u.p.length)}</span></td>
+        <td><span style={{fontFamily:'monospace',fontSize:12,color:'#888'}}>{'•'.repeat(8)}</span></td>
         <td><span style={{fontSize:12,fontWeight:600,color:u.active?'#27ae60':'#e74c3c'}}>{u.active?'Active':'Inactive'}</span></td>
         <td>
           <div className="fr">
@@ -862,7 +867,7 @@ function SettingsPage({gasUrl,onSaveGAS,state,onSaveState}){
 
 // ── APP ROOT ──────────────────────────────────────────────────────────────────
 function App(){
-  const [user,setUser]=useState(()=>ldSess());
+  const [user,setUser]=useState(()=>{const s=ldSess();return s?.token?s:null;});
   const [page,setPage]=useState('dash');
   const [state,setState]=useState(ldState);
   const [allUsers,setAllUsers]=useState(ldUsers);
@@ -898,7 +903,13 @@ function App(){
   const addIn=async l=>{const n=await uploadToDrive(l);const stamped={...n,_syncUpdatedAt:Date.now()};await sv({...state,inL:[...state.inL,stamped],inC:state.inC+1});};
   const updIn=(id,p)=>sv({...state,inL:state.inL.map(l=>l.id===id?{...l,...p,_syncUpdatedAt:Date.now()}:l)});
   const addOut=async l=>{const n=await uploadToDrive(l);const stamped={...n,_syncUpdatedAt:Date.now()};await sv({...state,outL:[...state.outL,stamped],outC:state.outC+1});};
-  const saveUsers=u=>{setAllUsers(u);svUsers(u);fbSaveUsers(u);};
+  const saveUsers=async(u,mutation)=>{
+    if(!user?.token){alert('DE session expired. නැවත login කරන්න.');logout();return false;}
+    const r=await gasCall(gasUrl,'adminUsers',{token:user.token,mutation});
+    if(r?.ok&&r.data){setAllUsers(r.data);svUsers(r.data);return true;}
+    alert(r?.error||'User change save කළ නොහැකි විය.');
+    return false;
+  };
   const saveGAS=url=>{setGasUrl(url);svGAS(url);};
   const saveState=s=>sv(s);
 
@@ -929,6 +940,8 @@ function App(){
           setState(data);svState(data);setSyncState('ok');
         });
       } else if(gasUrl){
+        const directory=await gasCall(gasUrl,'directory',{});
+        if(directory?.ok&&directory.data){setAllUsers(directory.data);svUsers(directory.data);}
         const pull=async()=>{
           if(syncingRef.current)return;
           const r=await gasCall(gasUrl,'load',{});
