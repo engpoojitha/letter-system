@@ -912,7 +912,7 @@ function App(){
   const [gasUrl,setGasUrl]=useState(ldGAS);
   const [syncState,setSyncState]=useState('off');
 
-  const sv=n=>{setState(n);svState(n);fbSaveState(n).then(r=>{if(r?.ok)setSyncState('ok');else if(isFirebaseConfigured())setSyncState('off');});};
+  const sv=n=>{setState(n);svState(n);if(isFirebaseConfigured()){fbSaveState(n).then(r=>setSyncState(r?.ok?'ok':'off'));}else if(gasUrl){setSyncState('busy');gasCall(gasUrl,'save',{payload:n}).then(r=>setSyncState(r?.ok?'ok':'off'));}};
   const uploadToDrive=async l=>{
     if(!l.fd||!gasUrl)return l;
     const r=await gasCall(gasUrl,'upload',{fileData:l.fd,fileName:l.fn,fileType:l.ft});
@@ -925,7 +925,7 @@ function App(){
   const addOut=async l=>{const n=await uploadToDrive(l);sv({...state,outL:[...state.outL,n],outC:state.outC+1});};
   const saveUsers=u=>{setAllUsers(u);svUsers(u);fbSaveUsers(u);};
   const saveGAS=url=>{setGasUrl(url);svGAS(url);};
-  const saveState=s=>{setState(s);svState(s);};
+  const saveState=s=>sv(s);
 
   const syncToGAS=useCallback(async(s)=>{
     // Legacy GAS sync (kept for backwards compatibility)
@@ -938,6 +938,7 @@ function App(){
   // Load from Firebase on startup + subscribe to real-time updates
   useEffect(()=>{
     let unsubscribe=()=>{};
+    let timer=null;
     (async()=>{
       if(isFirebaseConfigured()){
         setSyncState('busy');
@@ -953,13 +954,19 @@ function App(){
           setState(data);svState(data);setSyncState('ok');
         });
       } else if(gasUrl){
+        const pull=async()=>{
+          const r=await gasCall(gasUrl,'load',{});
+          if(r?.ok){
+            if(r.data){setState(r.data);svState(r.data);}
+            setSyncState('ok');
+          }else setSyncState('off');
+        };
         setSyncState('busy');
-        const r=await gasCall(gasUrl,'load',{});
-        if(r?.ok&&r.data){setState(r.data);svState(r.data);setSyncState('ok');}
-        else setSyncState('off');
+        await pull();
+        timer=setInterval(pull,5000);
       }
     })();
-    return ()=>unsubscribe();
+    return ()=>{unsubscribe();if(timer)clearInterval(timer);};
   },[]);
 
   const login=u=>{setUser(u);svSess(u);setPage('dash');};
