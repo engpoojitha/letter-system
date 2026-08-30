@@ -251,29 +251,55 @@ function Mod({title,onClose,children,wide}){
   </div>;
 }
 function FView({fd:fdata,fn,ft,fu,files}){
+  const [active,setActive]=useState(null);
   const items=(Array.isArray(files)&&files.length?files:[(fu||fdata)?{name:fn||'ගොනුව',type:ft||'',url:fu,data:fdata}:null]).filter(Boolean);
   if(!items.length)return null;
+  const info=file=>{
+    const id=file.id||(String(file.url||'').match(/\/d\/([^/]+)/)||[])[1]||'';
+    const isImage=(file.type||'').startsWith('image/');
+    const local=file.data?`data:${file.type};base64,${file.data}`:null;
+    const thumb=id?`https://drive.google.com/thumbnail?id=${id}&sz=w800`:local;
+    const preview=isImage?(id?`https://drive.google.com/thumbnail?id=${id}&sz=w2000`:local):(id?`https://drive.google.com/file/d/${id}/preview`:file.url);
+    return {...file,id,isImage,thumb,preview,openUrl:file.url||local,download:id?`https://drive.google.com/uc?export=download&id=${id}`:local};
+  };
   return <div style={{marginTop:12}}>
-    <div style={{fontSize:12,fontWeight:700,color:'#444',marginBottom:7}}>📎 Attachments ({items.length})</div>
-    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:10}}>
-      {items.map((file,i)=>{
-        const isImage=(file.type||'').startsWith('image/');
-        const localSrc=file.data?`data:${file.type};base64,${file.data}`:null;
-        const thumb=file.id?`https://drive.google.com/thumbnail?id=${file.id}&sz=w600`:localSrc;
-        const openUrl=file.url||localSrc;
-        return <div key={(file.id||file.name||'file')+i} style={{border:'1px solid #d8dfeb',borderRadius:8,overflow:'hidden',background:'#fff'}}>
-          {isImage&&thumb?<a href={openUrl} target="_blank" rel="noopener noreferrer"><img src={thumb} alt={file.name} loading="lazy" style={{width:'100%',height:130,objectFit:'cover',display:'block',background:'#eef2f7'}}/></a>:
-          <div style={{height:90,display:'flex',alignItems:'center',justifyContent:'center',fontSize:34,background:'#f4f6fa'}}>{(file.type||'').includes('pdf')?'📕':'📄'}</div>}
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,gap:8}}>
+      <div style={{fontSize:12,fontWeight:700,color:'#444'}}>📎 Attachments ({items.length})</div>
+      <div style={{fontSize:10,color:'#6b7280'}}>Google login අවශ්‍ය නැහැ · View හෝ Download කරන්න</div>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))',gap:10}}>
+      {items.map((raw,i)=>{
+        const file=info(raw);
+        return <div key={(file.id||file.name||'file')+i} style={{border:'1px solid #d8dfeb',borderRadius:9,overflow:'hidden',background:'#fff',boxShadow:'0 1px 4px rgba(0,0,0,.06)'}}>
+          <button type="button" onClick={()=>setActive(file)} style={{display:'block',width:'100%',padding:0,border:'none',background:'#f4f6fa'}}>
+            {file.isImage&&file.thumb?<img src={file.thumb} alt={file.name} loading="lazy" style={{width:'100%',height:135,objectFit:'cover',display:'block'}}/>:
+            <div style={{height:100,display:'flex',alignItems:'center',justifyContent:'center',fontSize:38}}>{(file.type||'').includes('pdf')?'📕':'📄'}</div>}
+          </button>
           <div style={{padding:8}}>
-            <div title={file.name} style={{fontSize:11,fontWeight:600,color:'#333',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginBottom:6}}>{file.name||'File'}</div>
+            <div title={file.name} style={{fontSize:11,fontWeight:600,color:'#333',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginBottom:7}}>{file.name||'File'}</div>
             <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-              {openUrl&&<a href={openUrl} target="_blank" rel="noopener noreferrer" className="btn bp bsm" style={{textDecoration:'none'}}>View</a>}
-              {localSrc&&<a href={localSrc} download={file.name} className="btn bs bsm" style={{textDecoration:'none'}}>Download</a>}
+              <button type="button" className="btn bp bsm" onClick={()=>setActive(file)}>👁 View</button>
+              {file.download&&<a href={file.download} target="_blank" rel="noopener noreferrer" className="btn bs bsm" style={{textDecoration:'none'}}>⬇</a>}
             </div>
           </div>
         </div>;
       })}
     </div>
+    {active&&<div onClick={e=>{if(e.target===e.currentTarget)setActive(null);}} style={{position:'fixed',inset:0,zIndex:2500,background:'rgba(0,0,0,.88)',display:'flex',alignItems:'center',justifyContent:'center',padding:10}}>
+      <div style={{width:'100%',maxWidth:1100,height:'94vh',background:'#111827',borderRadius:10,overflow:'hidden',display:'flex',flexDirection:'column'}}>
+        <div style={{padding:'9px 12px',display:'flex',alignItems:'center',gap:8,background:'#0b1220',color:'#fff'}}>
+          <div title={active.name} style={{flex:1,fontSize:12,fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>📎 {active.name}</div>
+          {active.download&&<a href={active.download} target="_blank" rel="noopener noreferrer" className="btn bs bsm" style={{textDecoration:'none'}}>⬇ Download</a>}
+          {active.openUrl&&<a href={active.openUrl} target="_blank" rel="noopener noreferrer" className="btn bp bsm" style={{textDecoration:'none'}}>Drive ↗</a>}
+          <button type="button" onClick={()=>setActive(null)} style={{border:'none',background:'#c0392b',color:'#fff',borderRadius:6,padding:'7px 11px',fontWeight:700}}>✕</button>
+        </div>
+        <div style={{flex:1,minHeight:0,display:'flex',alignItems:'center',justifyContent:'center',background:'#1f2937'}}>
+          {active.isImage?<img src={active.preview} alt={active.name} style={{maxWidth:'100%',maxHeight:'100%',objectFit:'contain'}}/>:
+          active.preview?<iframe src={active.preview} title={active.name} style={{width:'100%',height:'100%',border:'none',background:'#fff'}}/>:
+          <div style={{color:'#fff'}}>Preview unavailable. Drive button භාවිතා කරන්න.</div>}
+        </div>
+      </div>
+    </div>}
   </div>;
 }
 function useFiles(){
