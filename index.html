@@ -871,7 +871,23 @@ function App(){
   const [syncState,setSyncState]=useState('off');
   const syncingRef=useRef(false);
 
-  const sv=n=>{setState(n);svState(n);if(isFirebaseConfigured()){fbSaveState(n).then(r=>setSyncState(r?.ok?'ok':'off'));}else if(gasUrl){syncingRef.current=true;setSyncState('busy');gasCall(gasUrl,'save',{payload:n}).then(r=>setSyncState(r?.ok?'ok':'off')).finally(()=>{syncingRef.current=false;});}};
+  const sv=async n=>{
+    setState(n);svState(n);
+    if(isFirebaseConfigured()){const r=await fbSaveState(n);setSyncState(r?.ok?'ok':'off');return r;}
+    if(!gasUrl){setSyncState('off');return null;}
+    syncingRef.current=true;setSyncState('busy');
+    try{
+      const r=await gasCall(gasUrl,'save',{payload:n});
+      if(r?.ok){
+        if(r.data){setState(r.data);svState(r.data);}
+        setSyncState('ok');
+        return r;
+      }
+      setSyncState('off');
+      alert('Cloud save failed. මෙම record එක වෙනත් device වල නොපෙනේ. Internet connection එක පරීක්ෂා කර නැවත save කරන්න.');
+      return r;
+    }finally{syncingRef.current=false;}
+  };
   const uploadToDrive=async l=>{
     if(!l.fd||!gasUrl)return l;
     const r=await gasCall(gasUrl,'upload',{fileData:l.fd,fileName:l.fn,fileType:l.ft});
@@ -879,9 +895,9 @@ function App(){
     alert('Google Drive වෙත ගොනුව උඩුගත කළ නොහැකි විය. දත්ත ගොනුව නොමැතිව සුරකින ලදී.');
     return {...l,fd:undefined};
   };
-  const addIn=async l=>{const n=await uploadToDrive(l);sv({...state,inL:[...state.inL,n],inC:state.inC+1});};
-  const updIn=(id,p)=>sv({...state,inL:state.inL.map(l=>l.id===id?{...l,...p}:l)});
-  const addOut=async l=>{const n=await uploadToDrive(l);sv({...state,outL:[...state.outL,n],outC:state.outC+1});};
+  const addIn=async l=>{const n=await uploadToDrive(l);const stamped={...n,_syncUpdatedAt:Date.now()};await sv({...state,inL:[...state.inL,stamped],inC:state.inC+1});};
+  const updIn=(id,p)=>sv({...state,inL:state.inL.map(l=>l.id===id?{...l,...p,_syncUpdatedAt:Date.now()}:l)});
+  const addOut=async l=>{const n=await uploadToDrive(l);const stamped={...n,_syncUpdatedAt:Date.now()};await sv({...state,outL:[...state.outL,stamped],outC:state.outC+1});};
   const saveUsers=u=>{setAllUsers(u);svUsers(u);fbSaveUsers(u);};
   const saveGAS=url=>{setGasUrl(url);svGAS(url);};
   const saveState=s=>sv(s);
