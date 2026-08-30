@@ -329,7 +329,7 @@ function SCard({label,value,color,onClick}){
 
 // ── UPLOAD IN FORM ────────────────────────────────────────────────────────────
 function UpInForm({user,onClose,state,onSave,allUsers}){
-  const [f,sf]=useState({dr:'',from:'',fromO:'',to:'',toO:'',subj:'',desc:'',asgn:[]});
+  const [f,sf]=useState({dr:new Date().toISOString().slice(0,10),from:'',fromO:'',to:'',toO:'',subj:'',desc:'',asgn:[]});
   const [fl,,hf]=useFile();
   const set=(k,v)=>sf(x=>({...x,[k]:v}));
   const tog=u=>sf(x=>({...x,asgn:x.asgn.includes(u)?x.asgn.filter(a=>a!==u):[...x.asgn,u]}));
@@ -371,7 +371,7 @@ function UpInForm({user,onClose,state,onSave,allUsers}){
 }
 
 function UpOutForm({user,onClose,state,onSave}){
-  const [f,sf]=useState({ds:'',subj:'',to:'',toO:'',desc:''});
+  const [f,sf]=useState({ds:new Date().toISOString().slice(0,10),subj:'',to:'',toO:'',desc:''});
   const [fl,,hf]=useFile();
   const set=(k,v)=>sf(x=>({...x,[k]:v}));
   const sub=()=>{
