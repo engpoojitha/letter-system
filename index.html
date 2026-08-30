@@ -335,12 +335,13 @@ function UpInForm({user,onClose,state,onSave,allUsers}){
   const tog=u=>sf(x=>({...x,asgn:x.asgn.includes(u)?x.asgn.filter(a=>a!==u):[...x.asgn,u]}));
   const assignable=allUsers.filter(u=>u.active&&u.u!=='DE');
   const sub=()=>{
-    if(!f.dr||!f.from||!f.subj){alert('Fill required fields.');return;}
+    if(!f.from||!f.subj){alert('Fill required fields.');return;}
+    const dr=f.dr||new Date().toISOString().slice(0,10);
     const ref=mkRef('In',state.inC);
     const frm=f.from==='Others'?f.fromO:f.from;
     const to=f.to==='Others'?f.toO:f.to;
     const asgn=f.asgn.map(u=>({u,d:allUsers.find(x=>x.u===u).d,s:'pending',seen:null}));
-    onSave({id:crypto.randomUUID(),ref,dr:f.dr,du:new Date().toISOString(),by:user.u,from:frm,to:to||'DE',subj:f.subj,desc:f.desc,fd:fl?.data,fn:fl?.name,ft:fl?.type,asgn,status:user.r==='DE'?'de_reviewed':'pending_de',note:''});
+    onSave({id:crypto.randomUUID(),ref,dr,du:new Date().toISOString(),by:user.u,from:frm,to:to||'DE',subj:f.subj,desc:f.desc,fd:fl?.data,fn:fl?.name,ft:fl?.type,asgn,status:user.r==='DE'?'de_reviewed':'pending_de',note:''});
     onClose();
   };
   return <div>
@@ -375,9 +376,10 @@ function UpOutForm({user,onClose,state,onSave}){
   const [fl,,hf]=useFile();
   const set=(k,v)=>sf(x=>({...x,[k]:v}));
   const sub=()=>{
-    if(!f.ds||!f.subj||!f.to){alert('Fill required fields.');return;}
+    if(!f.subj||!f.to){alert('Fill required fields.');return;}
+    const ds=f.ds||new Date().toISOString().slice(0,10);
     const ref=mkRef('Out',state.outC);
-    onSave({id:crypto.randomUUID(),ref,ds:f.ds,du:new Date().toISOString(),by:user.u,from:'DE Battaramulla',to:f.to==='Others'?f.toO:f.to,subj:f.subj,desc:f.desc,fd:fl?.data,fn:fl?.name,ft:fl?.type});
+    onSave({id:crypto.randomUUID(),ref,ds,du:new Date().toISOString(),by:user.u,from:'DE Battaramulla',to:f.to==='Others'?f.toO:f.to,subj:f.subj,desc:f.desc,fd:fl?.data,fn:fl?.name,ft:fl?.type});
     onClose();
   };
   return <div>
