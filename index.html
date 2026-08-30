@@ -218,12 +218,25 @@ function fbSubscribeState(callback){
 }
 
 // Legacy GAS stub (kept for settings page)
-async function gasCall(gasUrl,action,payload){
+async function gasCall(gasUrl,action,payload,timeoutMs=12000){
   if(!gasUrl)return null;
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
   try{
-    const res=await fetch(gasUrl,{method:'POST',body:JSON.stringify({action,...payload})});
+    const res=await fetch(gasUrl,{
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action,...payload}),
+      cache:'no-store',
+      redirect:'follow',
+      signal:controller.signal
+    });
+    if(!res.ok)throw new Error('HTTP '+res.status);
     return await res.json();
-  }catch{return null;}
+  }catch(err){
+    console.warn('Cloud request failed:',action,err?.message||err);
+    return null;
+  }finally{clearTimeout(timer);}
 }
 
 // ── UI HELPERS ────────────────────────────────────────────────────────────────
@@ -266,10 +279,11 @@ function LoginPage({onLogin}){
     if(working)return;
     if(!u.trim()||!p.trim()){se('Username සහ password ඇතුළත් කරන්න.');return;}
     setWorking(true);se('');
-    const r=await gasCall(DEFAULT_GAS_URL,'login',{username:u.trim(),password:p});
+    let r=await gasCall(DEFAULT_GAS_URL,'login',{username:u.trim(),password:p},10000);
+    if(!r){await new Promise(resolve=>setTimeout(resolve,700));r=await gasCall(DEFAULT_GAS_URL,'login',{username:u.trim(),password:p},10000);}
     setWorking(false);
     if(r?.ok&&r.user&&r.token)onLogin({...r.user,token:r.token});
-    else se(r?.error||'Login failed. Internet connection එක පරීක්ෂා කරන්න.');
+    else se(r?.error||'Login server එකට සම්බන්ධ විය නොහැක. Internet connection එක පරීක්ෂා කර නැවත උත්සාහ කරන්න.');
   };
   return <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#001f5b,#003580,#005bb5)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:16}}>
     <div style={{background:'#fff',borderRadius:12,boxShadow:'0 20px 60px rgba(0,0,0,.4)',maxWidth:420,width:'100%',overflow:'hidden'}}>
