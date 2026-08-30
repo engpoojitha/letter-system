@@ -364,7 +364,7 @@ function LoginPage({onLogin}){
       <div style={{background:'linear-gradient(135deg,#001f5b,#003580)',padding:'26px 24px 20px',textAlign:'center'}}>
         <div style={{color:'#fff',fontWeight:800,fontSize:16}}>DE Office – Battaramulla</div>
         <div style={{color:'#b3d4ff',fontSize:13,marginTop:3}}>Letter Management System</div>
-        <div style={{color:'rgba(255,255,255,.5)',fontSize:11,marginTop:2}}>Western Provincial Council · Engineering Branch</div>
+        <div style={{color:'rgba(255,255,255,.5)',fontSize:11,marginTop:2}}>Engineering Branch</div>
       </div>
       <div style={{padding:'24px 28px'}}>
         <div className="fg"><label className="flb">Username</label><input className="fi" value={u} onChange={e=>su(e.target.value)} onKeyDown={e=>e.key==='Enter'&&go()} placeholder="e.g. DE, CC, MO1…"/></div>
@@ -391,7 +391,7 @@ function TopNav({user,page,setPage,onLogout,gasUrl,syncState}){
     <div className="topbar-row" style={{display:'flex',alignItems:'center',padding:'8px 18px',gap:10,borderBottom:'1px solid rgba(255,255,255,.1)'}}>
       <div style={{flex:1}}>
         <div style={{color:'#fff',fontWeight:800,fontSize:14}}>DE Office – Battaramulla &nbsp;|&nbsp; Letter Management System</div>
-        <div style={{color:'rgba(255,255,255,.5)',fontSize:11}}>Western Provincial Council · Engineering Branch</div>
+        <div style={{color:'rgba(255,255,255,.5)',fontSize:11}}>Engineering Branch</div>
       </div>
       <div style={{textAlign:'right',marginRight:6}}>
         <div style={{color:'#fff',fontSize:12,fontWeight:600}}>{user.d}</div>
