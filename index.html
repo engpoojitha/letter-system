@@ -281,14 +281,15 @@ function useFiles(){
   const handle=e=>{
     const selected=Array.from(e.target.files||[]);
     if(!selected.length)return;
-    if(selected.length>10){alert('වරකට files 10ක් දක්වා upload කරන්න.');e.target.value='';return;}
+    if(files.length+selected.length>20){alert('එක letter එකකට photos/files 20ක් දක්වා එකතු කළ හැකියි.');e.target.value='';return;}
     const tooLarge=selected.find(f=>f.size>10*1024*1024);
     if(tooLarge){alert(tooLarge.name+' file එක 10MB ට වඩා විශාලයි.');e.target.value='';return;}
     Promise.all(selected.map(file=>new Promise((resolve,reject)=>{
       const reader=new FileReader();
       reader.onload=ev=>resolve({data:ev.target.result.split(',')[1],name:file.name,type:file.type||'application/octet-stream',size:file.size});
       reader.onerror=reject;reader.readAsDataURL(file);
-    }))).then(setFiles).catch(()=>alert('Files read කළ නොහැකි විය.'));
+    }))).then(newFiles=>setFiles(previous=>[...previous,...newFiles])).catch(()=>alert('Files read කළ නොහැකි විය.'));
+    e.target.value='';
   };
   return [files,setFiles,handle];
 }
@@ -369,7 +370,7 @@ function SCard({label,value,color,onClick}){
 // ── UPLOAD IN FORM ────────────────────────────────────────────────────────────
 function UpInForm({user,onClose,state,onSave,allUsers}){
   const [f,sf]=useState({dr:new Date().toISOString().slice(0,10),from:'',fromO:'',to:'',toO:'',subj:'',desc:'',asgn:[]});
-  const [fl,,hf]=useFiles();
+  const [fl,sfl,hf]=useFiles();
   const set=(k,v)=>sf(x=>({...x,[k]:v}));
   const tog=u=>sf(x=>({...x,asgn:x.asgn.includes(u)?x.asgn.filter(a=>a!==u):[...x.asgn,u]}));
   const assignable=allUsers.filter(u=>u.active&&u.u!=='DE');
@@ -397,7 +398,21 @@ function UpInForm({user,onClose,state,onSave,allUsers}){
       <div className="fg" style={{gridColumn:'span 2'}}><label className="flb">Subject *</label><input className="fi" value={f.subj} onChange={e=>set('subj',e.target.value)}/></div>
     </div>
     <div className="fg"><label className="flb">Description</label><textarea className="fi" style={{height:65,resize:'vertical'}} value={f.desc} onChange={e=>set('desc',e.target.value)}/></div>
-    <div className="fg"><label className="flb">Attach Photos / Documents (up to 10)</label><input type="file" multiple onChange={hf} accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style={{marginTop:4}}/>{fl.length>0&&<div style={{marginTop:7,display:'flex',flexWrap:'wrap',gap:6}}>{fl.map((x,i)=><span key={i} className="chip">✅ {x.name}</span>)}</div>}</div>
+    <div className="fg">
+      <label className="flb">Photos / Documents ({fl.length}/20)</label>
+      <div className="fr" style={{marginTop:6}}>
+        <label className="btn bg" style={{cursor:'pointer'}}>📷 Take Photo<input type="file" accept="image/*" capture="environment" onChange={hf} style={{display:'none'}}/></label>
+        <label className="btn bs" style={{cursor:'pointer'}}>🖼 Choose Multiple<input type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" onChange={hf} style={{display:'none'}}/></label>
+      </div>
+      <div style={{fontSize:11,color:'#777',marginTop:6}}>Camera button එක නැවත නැවත භාවිතා කර photos 20ක් දක්වා එකතු කරන්න.</div>
+      {fl.length>0&&<div style={{marginTop:9,display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(120px,1fr))',gap:8}}>
+        {fl.map((x,i)=><div key={i} style={{border:'1px solid #d8dfeb',borderRadius:7,padding:6,background:'#fff',position:'relative'}}>
+          {x.type?.startsWith('image/')?<img src={`data:${x.type};base64,${x.data}`} alt={x.name} style={{width:'100%',height:80,objectFit:'cover',borderRadius:5}}/>:<div style={{height:55,display:'flex',alignItems:'center',justifyContent:'center',fontSize:28}}>📄</div>}
+          <div title={x.name} style={{fontSize:10,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginTop:4}}>{x.name}</div>
+          <button type="button" onClick={()=>sfl(xs=>xs.filter((_,j)=>j!==i))} style={{position:'absolute',top:2,right:2,border:'none',borderRadius:'50%',background:'#c0392b',color:'#fff',width:22,height:22}}>×</button>
+        </div>)}
+      </div>}
+    </div>
     {user.r==='DE'&&<div className="fg"><label className="flb">Assign To</label>
       <div style={{display:'flex',flexWrap:'wrap',marginTop:5}}>
         {assignable.map(a=><label key={a.u} className={`at${f.asgn.includes(a.u)?' sel':''}`}><input type="checkbox" checked={f.asgn.includes(a.u)} onChange={()=>tog(a.u)} style={{margin:0}}/> {a.d}</label>)}
@@ -412,7 +427,7 @@ function UpInForm({user,onClose,state,onSave,allUsers}){
 
 function UpOutForm({user,onClose,state,onSave}){
   const [f,sf]=useState({ds:new Date().toISOString().slice(0,10),subj:'',to:'',toO:'',desc:''});
-  const [fl,,hf]=useFiles();
+  const [fl,sfl,hf]=useFiles();
   const set=(k,v)=>sf(x=>({...x,[k]:v}));
   const sub=()=>{
     if(!f.subj||!f.to){alert('Fill required fields.');return;}
@@ -432,7 +447,21 @@ function UpOutForm({user,onClose,state,onSave}){
       <div className="fg" style={{gridColumn:'span 2'}}><label className="flb">Subject *</label><input className="fi" value={f.subj} onChange={e=>set('subj',e.target.value)}/></div>
     </div>
     <div className="fg"><label className="flb">Description</label><textarea className="fi" style={{height:65,resize:'vertical'}} value={f.desc} onChange={e=>set('desc',e.target.value)}/></div>
-    <div className="fg"><label className="flb">Attach Photos / Documents (up to 10)</label><input type="file" multiple onChange={hf} accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style={{marginTop:4}}/>{fl.length>0&&<div style={{marginTop:7,display:'flex',flexWrap:'wrap',gap:6}}>{fl.map((x,i)=><span key={i} className="chip">✅ {x.name}</span>)}</div>}</div>
+    <div className="fg">
+      <label className="flb">Photos / Documents ({fl.length}/20)</label>
+      <div className="fr" style={{marginTop:6}}>
+        <label className="btn bg" style={{cursor:'pointer'}}>📷 Take Photo<input type="file" accept="image/*" capture="environment" onChange={hf} style={{display:'none'}}/></label>
+        <label className="btn bs" style={{cursor:'pointer'}}>🖼 Choose Multiple<input type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" onChange={hf} style={{display:'none'}}/></label>
+      </div>
+      <div style={{fontSize:11,color:'#777',marginTop:6}}>Camera button එක නැවත නැවත භාවිතා කර photos 20ක් දක්වා එකතු කරන්න.</div>
+      {fl.length>0&&<div style={{marginTop:9,display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(120px,1fr))',gap:8}}>
+        {fl.map((x,i)=><div key={i} style={{border:'1px solid #d8dfeb',borderRadius:7,padding:6,background:'#fff',position:'relative'}}>
+          {x.type?.startsWith('image/')?<img src={`data:${x.type};base64,${x.data}`} alt={x.name} style={{width:'100%',height:80,objectFit:'cover',borderRadius:5}}/>:<div style={{height:55,display:'flex',alignItems:'center',justifyContent:'center',fontSize:28}}>📄</div>}
+          <div title={x.name} style={{fontSize:10,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginTop:4}}>{x.name}</div>
+          <button type="button" onClick={()=>sfl(xs=>xs.filter((_,j)=>j!==i))} style={{position:'absolute',top:2,right:2,border:'none',borderRadius:'50%',background:'#c0392b',color:'#fff',width:22,height:22}}>×</button>
+        </div>)}
+      </div>}
+    </div>
     <div className="fr" style={{justifyContent:'flex-end'}}>
       <button className="btn bs" onClick={onClose}>Cancel</button>
       <button className="btn bp" onClick={sub}>Upload Out Letter</button>
