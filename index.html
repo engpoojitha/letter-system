@@ -218,7 +218,7 @@ function fbSubscribeState(callback){
 }
 
 // Legacy GAS stub (kept for settings page)
-async function gasCall(gasUrl,action,payload,timeoutMs=12000){
+async function gasCall(gasUrl,action,payload,timeoutMs=45000){
   if(!gasUrl)return null;
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),timeoutMs);
@@ -423,18 +423,24 @@ function SCard({label,value,color,onClick}){
 function UpInForm({user,onClose,state,onSave,allUsers}){
   const [f,sf]=useState({dr:new Date().toISOString().slice(0,10),from:'',fromO:'',to:'',toO:'',subj:'',desc:'',asgn:[]});
   const [fl,sfl,hf]=useFiles();
+  const [saving,setSaving]=useState(false);
   const set=(k,v)=>sf(x=>({...x,[k]:v}));
   const tog=u=>sf(x=>({...x,asgn:x.asgn.includes(u)?x.asgn.filter(a=>a!==u):[...x.asgn,u]}));
   const assignable=allUsers.filter(u=>u.active&&u.u!=='DE');
-  const sub=()=>{
+  const sub=async()=>{
+    if(saving)return;
     if(!f.from||!f.subj){alert('Fill required fields.');return;}
+    if(f.from==='Others'&&!f.fromO.trim()){alert('Please specify From.');return;}
     const dr=f.dr||new Date().toISOString().slice(0,10);
     const ref=mkRef('In',state.inC);
-    const frm=f.from==='Others'?f.fromO:f.from;
-    const to=f.to==='Others'?f.toO:f.to;
+    const frm=f.from==='Others'?f.fromO.trim():f.from;
+    const to=f.to==='Others'?f.toO.trim():f.to;
     const asgn=f.asgn.map(u=>({u,d:allUsers.find(x=>x.u===u).d,s:'pending',seen:null}));
-    onSave({id:crypto.randomUUID(),ref,dr,du:new Date().toISOString(),by:user.u,from:frm,to:to||'DE',subj:f.subj,desc:f.desc,files:fl,asgn,status:user.r==='DE'?'de_reviewed':'pending_de',note:''});
-    onClose();
+    setSaving(true);
+    try{
+      const ok=await onSave({id:crypto.randomUUID(),ref,dr,du:new Date().toISOString(),by:user.u,from:frm,to:to||'DE',subj:f.subj.trim(),desc:f.desc,files:fl,asgn,status:user.r==='DE'?'de_reviewed':'pending_de',note:''});
+      if(ok)onClose();
+    }finally{setSaving(false);}
   };
   return <div>
     <div className="g2">
@@ -471,8 +477,8 @@ function UpInForm({user,onClose,state,onSave,allUsers}){
       </div>
     </div>}
     <div className="fr" style={{justifyContent:'flex-end',marginTop:6}}>
-      <button className="btn bs" onClick={onClose}>Cancel</button>
-      <button className="btn bp" onClick={sub}>Upload Letter</button>
+      <button className="btn bs" onClick={onClose} disabled={saving}>Cancel</button>
+      <button className="btn bp" onClick={sub} disabled={saving}>{saving?'Saving to Drive & Sheet…':'Upload Letter'}</button>
     </div>
   </div>;
 }
@@ -480,13 +486,19 @@ function UpInForm({user,onClose,state,onSave,allUsers}){
 function UpOutForm({user,onClose,state,onSave}){
   const [f,sf]=useState({ds:new Date().toISOString().slice(0,10),subj:'',to:'',toO:'',desc:''});
   const [fl,sfl,hf]=useFiles();
+  const [saving,setSaving]=useState(false);
   const set=(k,v)=>sf(x=>({...x,[k]:v}));
-  const sub=()=>{
+  const sub=async()=>{
+    if(saving)return;
     if(!f.subj||!f.to){alert('Fill required fields.');return;}
+    if(f.to==='Others'&&!f.toO.trim()){alert('Please specify To.');return;}
     const ds=f.ds||new Date().toISOString().slice(0,10);
     const ref=mkRef('Out',state.outC);
-    onSave({id:crypto.randomUUID(),ref,ds,du:new Date().toISOString(),by:user.u,from:'DE Battaramulla',to:f.to==='Others'?f.toO:f.to,subj:f.subj,desc:f.desc,files:fl});
-    onClose();
+    setSaving(true);
+    try{
+      const ok=await onSave({id:crypto.randomUUID(),ref,ds,du:new Date().toISOString(),by:user.u,from:'DE Battaramulla',to:f.to==='Others'?f.toO.trim():f.to,subj:f.subj.trim(),desc:f.desc,files:fl});
+      if(ok)onClose();
+    }finally{setSaving(false);}
   };
   return <div>
     <div className="g2">
@@ -515,8 +527,8 @@ function UpOutForm({user,onClose,state,onSave}){
       </div>}
     </div>
     <div className="fr" style={{justifyContent:'flex-end'}}>
-      <button className="btn bs" onClick={onClose}>Cancel</button>
-      <button className="btn bp" onClick={sub}>Upload Out Letter</button>
+      <button className="btn bs" onClick={onClose} disabled={saving}>Cancel</button>
+      <button className="btn bp" onClick={sub} disabled={saving}>{saving?'Saving to Drive & Sheet…':'Upload Out Letter'}</button>
     </div>
   </div>;
 }
@@ -721,7 +733,7 @@ function InPage({user,state,onAdd,onUpd,onDelete,fs,setFS,allUsers}){
     </table></div>}
     {sel&&<InModal letter={state.inL.find(l=>l.id===sel.id)||sel} user={user} onClose={()=>setSel(null)} onUpdate={(id,p)=>onUpd(id,p)} allUsers={allUsers}/>}
     {showUp&&<Mod title="Upload Incoming Letter" onClose={()=>setShowUp(false)}>
-      <UpInForm user={user} onClose={()=>setShowUp(false)} state={state} onSave={l=>{onAdd(l);setShowUp(false);}} allUsers={allUsers}/>
+      <UpInForm user={user} onClose={()=>setShowUp(false)} state={state} onSave={onAdd} allUsers={allUsers}/>
     </Mod>}
   </div>;
 }
@@ -757,7 +769,7 @@ function OutPage({user,state,onAdd,onDelete,allUsers}){
     </table></div>}
     {sel&&<OutModal letter={sel} onClose={()=>setSel(null)}/>}
     {showUp&&<Mod title="Upload Outgoing Letter" onClose={()=>setShowUp(false)}>
-      <UpOutForm user={user} onClose={()=>setShowUp(false)} state={state} onSave={l=>{onAdd(l);setShowUp(false);}}/>
+      <UpOutForm user={user} onClose={()=>setShowUp(false)} state={state} onSave={onAdd}/>
     </Mod>}
   </div>;
 }
@@ -997,16 +1009,18 @@ function App(){
   const [gasUrl,setGasUrl]=useState(ldGAS);
   const [syncState,setSyncState]=useState('off');
   const syncingRef=useRef(false);
+  const stateRef=useRef(state);
+  useEffect(()=>{stateRef.current=state;},[state]);
 
   const sv=async n=>{
-    setState(n);svState(n);
+    stateRef.current=n;setState(n);svState(n);
     if(isFirebaseConfigured()){const r=await fbSaveState(n);setSyncState(r?.ok?'ok':'off');return r;}
     if(!gasUrl){setSyncState('off');return null;}
     syncingRef.current=true;setSyncState('busy');
     try{
       const r=await gasCall(gasUrl,'save',{payload:n});
       if(r?.ok){
-        if(r.data){setState(r.data);svState(r.data);}
+        if(r.data){stateRef.current=r.data;setState(r.data);svState(r.data);}
         setSyncState('ok');
         return r;
       }
@@ -1032,9 +1046,27 @@ function App(){
     if(uploaded.length!==pending.length)alert((pending.length-uploaded.length)+' file(s) Google Drive වෙත upload කළ නොහැකි විය.');
     return {...l,files:uploaded,fn:uploaded[0]?.name,ft:uploaded[0]?.type,fu:uploaded[0]?.url,fd:undefined};
   };
-  const addIn=async l=>{const n=await uploadToDrive(l);const stamped={...n,_syncUpdatedAt:Date.now()};await sv({...state,inL:[...state.inL,stamped],inC:state.inC+1});};
-  const updIn=(id,p)=>sv({...state,inL:state.inL.map(l=>l.id===id?{...l,...p,_syncUpdatedAt:Date.now()}:l)});
-  const addOut=async l=>{const n=await uploadToDrive(l);const stamped={...n,_syncUpdatedAt:Date.now()};await sv({...state,outL:[...state.outL,stamped],outC:state.outC+1});};
+  const addIn=async l=>{
+    syncingRef.current=true;setSyncState('busy');
+    try{
+      const n=await uploadToDrive(l);
+      const stamped={...n,_syncUpdatedAt:Date.now()};
+      const base=stateRef.current;
+      const r=await sv({...base,inL:[...base.inL,stamped],inC:base.inC+1});
+      return !!r?.ok;
+    }finally{syncingRef.current=false;}
+  };
+  const updIn=(id,p)=>{const base=stateRef.current;return sv({...base,inL:base.inL.map(l=>l.id===id?{...l,...p,_syncUpdatedAt:Date.now()}:l)});};
+  const addOut=async l=>{
+    syncingRef.current=true;setSyncState('busy');
+    try{
+      const n=await uploadToDrive(l);
+      const stamped={...n,_syncUpdatedAt:Date.now()};
+      const base=stateRef.current;
+      const r=await sv({...base,outL:[...base.outL,stamped],outC:base.outC+1});
+      return !!r?.ok;
+    }finally{syncingRef.current=false;}
+  };
   const deleteLetter=async(direction,id,ref)=>{
     if(user?.r!=='DE')return;
     if(!confirm(`Permanently delete ${ref}?\n\nමෙය සියලු devices සහ Google Sheet එකෙන් ඉවත් වේ.`))return;
@@ -1084,17 +1116,21 @@ function App(){
       } else if(gasUrl){
         const directory=await gasCall(gasUrl,'directory',{});
         if(directory?.ok&&directory.data){setAllUsers(directory.data);svUsers(directory.data);}
+        let pulling=false;
         const pull=async()=>{
-          if(syncingRef.current)return;
-          const r=await gasCall(gasUrl,'load',{});
-          if(r?.ok){
-            if(r.data){setState(prev=>{if(JSON.stringify(prev)===JSON.stringify(r.data))return prev;svState(r.data);return r.data;});}
-            setSyncState('ok');
-          }else setSyncState('off');
+          if(syncingRef.current||pulling)return;
+          pulling=true;
+          try{
+            const r=await gasCall(gasUrl,'load',{},45000);
+            if(r?.ok){
+              if(r.data){setState(prev=>{if(JSON.stringify(prev)===JSON.stringify(r.data))return prev;stateRef.current=r.data;svState(r.data);return r.data;});}
+              setSyncState('ok');
+            }else setSyncState('off');
+          }finally{pulling=false;}
         };
         setSyncState('busy');
         await pull();
-        timer=setInterval(pull,5000);
+        timer=setInterval(pull,15000);
       }
     })();
     return ()=>{unsubscribe();if(timer)clearInterval(timer);};
