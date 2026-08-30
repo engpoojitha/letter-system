@@ -867,8 +867,9 @@ function App(){
   const [fs,setFS]=useState(undefined);
   const [gasUrl,setGasUrl]=useState(ldGAS);
   const [syncState,setSyncState]=useState('off');
+  const syncingRef=useRef(false);
 
-  const sv=n=>{setState(n);svState(n);if(isFirebaseConfigured()){fbSaveState(n).then(r=>setSyncState(r?.ok?'ok':'off'));}else if(gasUrl){setSyncState('busy');gasCall(gasUrl,'save',{payload:n}).then(r=>setSyncState(r?.ok?'ok':'off'));}};
+  const sv=n=>{setState(n);svState(n);if(isFirebaseConfigured()){fbSaveState(n).then(r=>setSyncState(r?.ok?'ok':'off'));}else if(gasUrl){syncingRef.current=true;setSyncState('busy');gasCall(gasUrl,'save',{payload:n}).then(r=>setSyncState(r?.ok?'ok':'off')).finally(()=>{syncingRef.current=false;});}};
   const uploadToDrive=async l=>{
     if(!l.fd||!gasUrl)return l;
     const r=await gasCall(gasUrl,'upload',{fileData:l.fd,fileName:l.fn,fileType:l.ft});
@@ -911,9 +912,10 @@ function App(){
         });
       } else if(gasUrl){
         const pull=async()=>{
+          if(syncingRef.current)return;
           const r=await gasCall(gasUrl,'load',{});
           if(r?.ok){
-            if(r.data){setState(r.data);svState(r.data);}
+            if(r.data){setState(prev=>{if(JSON.stringify(prev)===JSON.stringify(r.data))return prev;svState(r.data);return r.data;});}
             setSyncState('ok');
           }else setSyncState('off');
         };
