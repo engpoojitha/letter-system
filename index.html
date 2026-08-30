@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>DE Office Battaramulla – Letter Management System</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script type="module">
+// ── FIREBASE CONFIG ──────────────────────────────────────────────────────────
+// STEP 1: Go to https://console.firebase.google.com
+// STEP 2: Create project → Add Web App → Copy config below
+// STEP 3: Enable Firestore Database (Build → Firestore → Create database → Start in test mode)
+// STEP 4: Replace the placeholder values below with your real config
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, collection, onSnapshot, setDoc, updateDoc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "PASTE_YOUR_API_KEY_HERE",
+  authDomain: "PASTE_YOUR_AUTH_DOMAIN_HERE",
+  projectId: "PASTE_YOUR_PROJECT_ID_HERE",
+  storageBucket: "PASTE_YOUR_STORAGE_BUCKET_HERE",
+  messagingSenderId: "PASTE_YOUR_MESSAGING_SENDER_ID_HERE",
+  appId: "PASTE_YOUR_APP_ID_HERE"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// Expose to global scope so React code can use it
+window.__firebaseDB = db;
+window.__firebaseOps = { doc, collection, onSnapshot, setDoc, updateDoc, getDoc, getDocs };
+window.__firebaseReady = true;
+
+console.log("Firebase initialized successfully");
+</script>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f7;min-height:100vh}
+input,select,textarea,button{font-family:inherit}
+button{cursor:pointer}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-thumb{background:#c0c8da;border-radius:3px}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#003580;color:#fff;padding:9px 10px;text-align:left;font-size:12px;white-space:nowrap}
+td{padding:7px 10px;border-bottom:1px solid #eee;vertical-align:middle}
+tr:nth-child(even){background:#f9f9fb}
+tr:hover td{background:#e8f0fd}
+.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;color:#fff;white-space:nowrap}
+.fl{font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+.fv{font-size:13px;color:#333}
+.fg{margin-bottom:13px}
+.flb{display:block;font-size:12px;font-weight:600;color:#444;margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px}
+.fi{display:block;width:100%;padding:8px 11px;border:1.5px solid #ccd6e8;border-radius:6px;font-size:13px;outline:none}
+.fi:focus{border-color:#005bb5}
+.btn{padding:8px 18px;border:none;border-radius:6px;font-weight:600;font-size:13px;transition:opacity .15s}
+.btn:hover{opacity:.82}
+.bp{background:#003580;color:#fff}
+.bg{background:#27ae60;color:#fff}
+.br{background:#c0392b;color:#fff}
+.bs{background:#e8e8e8;color:#333}
+.bsm{padding:4px 11px;font-size:12px}
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.52);z-index:1000;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto}
+.mb{background:#fff;border-radius:10px;width:100%;max-width:760px;box-shadow:0 20px 60px rgba(0,0,0,.3);margin-top:16px;max-height:92vh;display:flex;flex-direction:column}
+.mh{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:#003580;border-radius:10px 10px 0 0;flex-shrink:0}
+.mt{color:#fff;font-weight:700;font-size:14px}
+.mc{background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:4px;padding:3px 9px;font-size:15px}
+.mbd{padding:20px;overflow-y:auto;flex:1}
+.sc{background:#fff;border-radius:10px;padding:15px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.07);transition:transform .15s}
+.sc:hover{transform:translateY(-2px)}
+.sv{font-size:28px;font-weight:800;line-height:1}
+.sl{font-size:12px;color:#666;margin-top:4px}
+.nb{padding:9px 15px;background:transparent;border:none;border-bottom:3px solid transparent;color:rgba(255,255,255,.75);font-weight:500;font-size:13px}
+.nb.act{background:rgba(255,255,255,.15);border-bottom-color:#fff;color:#fff;font-weight:700}
+.nb:hover{color:#fff;background:rgba(255,255,255,.08)}
+.at{display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border:1px solid #ccc;border-radius:20px;font-size:12px;background:#f9f9f9;margin:3px;cursor:pointer}
+.at.sel{border:2px solid #005bb5;background:#e8f0fd;font-weight:600}
+.ab{padding:9px 13px;border-radius:6px;font-size:13px;margin-bottom:11px}
+.ae{background:#fff0f0;border:1px solid #ffcccc;color:#c0392b}
+.aw{background:#fffbe6;border:1px solid #ffe58f;color:#856404}
+.ai{background:#f0f7ff;border:1px solid #b3d4ff;color:#003580}
+.ag{background:#f0fff4;border:1px solid #b2dfdb;color:#1b5e20}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:13px}
+.fr{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.na{background:#f0f7ff;border:1px solid #b3d4ff;border-radius:8px;padding:13px;margin-top:13px}
+.divider{border:none;border-top:1px solid #eee;margin:14px 0}
+.chip{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;margin:1px;background:#e8f0fd;color:#003580}
+.sync-bar{display:flex;align-items:center;gap:8px;padding:7px 14px;background:#003580;color:rgba(255,255,255,.8);font-size:11px}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:#27ae60;flex-shrink:0}
+.sync-dot.off{background:#e74c3c}
+.sync-dot.busy{background:#f39c12;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── MOBILE / PHONE RESPONSIVE RULES ───────────────────────────────────────── */
+@media (max-width:760px){
+  .g2,.g3{grid-template-columns:1fr}
+  .mb{max-width:100%;margin-top:0;border-radius:0;max-height:100vh}
+  .mo{padding:0}
+  .mh{padding:12px 14px}
+  .mbd{padding:14px}
+  .sc{padding:12px 10px}
+  .sv{font-size:22px}
+  .fi,.btn{font-size:16px}
+  th,td{font-size:12px;padding:6px 7px}
+  .topbar-row{flex-wrap:wrap;padding:10px 12px}
+  .nb{padding:8px 10px;font-size:12px}
+}
+@media (max-width:480px){
+  body{font-size:14px}
+  .g2,.g3{gap:9px}
+  .btn{padding:10px 14px}
+  .bsm{padding:6px 10px}
+}
+/* Make main content and nav tabs scroll horizontally instead of overflowing the screen */
+.nb-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef,useCallback}=React;
+
+
+// ── FIREBASE CONFIG ───────────────────────────────────────────────────────────
+// Firebase is initialized in the <script type="module"> block above.
+// Once configured, all data syncs automatically across all devices.
+const DEFAULT_GAS_URL=""; // kept for legacy settings page compatibility
+
+const DRIVE="https://drive.google.com/drive/folders/1GS_pPVVEaw1-YmuXYxPrHYATZuUFAaYn";
+const SK="de_batt_lms_v5";
+const SSK="de_batt_sess_v5";
+const USERS_KEY="de_batt_users_v5";
+const GAS_KEY="de_batt_gas_url";
+
+// ── DEFAULT USERS (DE can edit these in-app) ──────────────────────────────────
+const DEFAULT_USERS=[
+  {u:"DE",  p:"de537",  d:"Divisional Engineer",  r:"DE",  active:true},
+  {u:"CC",  p:"cc568",  d:"Chief Clerk",           r:"CC",  active:true},
+  {u:"MO1", p:"mo559",  d:"Management Officer 1",  r:"MO",  active:true},
+  {u:"MO2", p:"mo587",  d:"Management Officer 2",  r:"MO",  active:true},
+  {u:"MO3", p:"mo852",  d:"Management Officer 3",  r:"MO",  active:true},
+  {u:"MO4", p:"mo456",  d:"Management Officer 4",  r:"MO",  active:true},
+  {u:"DO1", p:"do753",  d:"Development Officer 1", r:"DO",  active:true},
+  {u:"DO2", p:"do357",  d:"Development Officer 2", r:"DO",  active:true},
+  {u:"STO KADUWELA",   p:"kadu753",d:"STO Kaduwela",   r:"STO", active:true},
+  {u:"STO MAHARAGAMA", p:"ma785",  d:"STO Maharagama", r:"STO", active:true},
+  {u:"STO NUGEGODA",   p:"nu459",  d:"STO Nugegoda",   r:"STO", active:true},
+  {u:"STO KOLONNAWA",  p:"ko951",  d:"STO Kolonnawa",  r:"STO", active:true},
+  {u:"KADUWELA TO1",   p:"kadu852",d:"Kaduwela TO1",   r:"TO",  active:true},
+  {u:"KADUWELA TO2",   p:"kadu794",d:"Kaduwela TO2",   r:"TO",  active:true},
+  {u:"KADUWELA TO3",   p:"kadu259",d:"Kaduwela TO3",   r:"TO",  active:true},
+  {u:"KOLONNAWA TO1",  p:"ko871",  d:"Kolonnawa TO1",  r:"TO",  active:true},
+  {u:"KOLONNAWA TO2",  p:"ko864",  d:"Kolonnawa TO2",  r:"TO",  active:true},
+  {u:"NUGEGODA TO1",   p:"nu169",  d:"Nugegoda TO1",   r:"TO",  active:true},
+  {u:"NUGEGODA TO2",   p:"nu119",  d:"Nugegoda TO2",   r:"TO",  active:true},
+  {u:"MAHARAGAMA TO1", p:"ma941",  d:"Maharagama TO1", r:"TO",  active:true},
+  {u:"MAHARAGAMA TO2", p:"ma241",  d:"Maharagama TO2", r:"TO",  active:true},
+];
+
+const ROLES=["DE","CC","MO","DO","STO","TO"];
+const FROM_OPTS=["DCS Engineering","Director Building","Director Engineering","Western Provincial Council","Ministry of Provincial Councils","Divisional Secretariat","Local Government","Others"];
+const TO_OPTS_IN=["DE","CC","MO1","MO2","MO3","MO4","DO1","DO2","STO KADUWELA","STO MAHARAGAMA","STO NUGEGODA","STO KOLONNAWA","Others"];
+const OUT_TO=["DCS Engineering","Director Building","Director Engineering","Western Provincial Council","Ministry of Provincial Councils","Divisional Secretariat","Local Government","Others"];
+const SC={pending_de:"#e67e22",de_reviewed:"#2980b9",ongoing:"#8e44ad",done:"#27ae60",attended:"#16a085",pending:"#95a5a6"};
+const SL={pending_de:"Pending DE Review",de_reviewed:"DE Reviewed",ongoing:"Ongoing",done:"Done",attended:"Attended",pending:"Pending"};
+
+// ── STORAGE HELPERS ───────────────────────────────────────────────────────────
+function ldUsers(){
+  try{const s=localStorage.getItem(USERS_KEY);if(s)return JSON.parse(s);}catch{}
+  return DEFAULT_USERS;
+}
+function svUsers(u){try{localStorage.setItem(USERS_KEY,JSON.stringify(u));}catch{}}
+function ldState(){try{const s=localStorage.getItem(SK);if(s)return JSON.parse(s);}catch{}return{inL:[],outL:[],inC:1,outC:1};}
+function svState(s){try{localStorage.setItem(SK,JSON.stringify(s));}catch{}}
+function ldSess(){try{const s=localStorage.getItem(SSK);if(s)return JSON.parse(s);}catch{}return null;}
+function svSess(u){try{u?localStorage.setItem(SSK,JSON.stringify(u)):localStorage.removeItem(SSK);}catch{}}
+function ldGAS(){return localStorage.getItem(GAS_KEY)||DEFAULT_GAS_URL;}
+function svGAS(url){localStorage.setItem(GAS_KEY,url);}
+
+function mkRef(t,c){
+  const d=new Date();
+  return`DEO_Batt_${String(d.getFullYear()).slice(2)}_${String(d.getMonth()+1).padStart(2,'0')}_${String(d.getDate()).padStart(2,'0')}_${t}_${String(c).padStart(2,'0')}`;
+}
+function fd(d){return d?new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'-';}
+function fdt(d){return d?new Date(d).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'-';}
+
+// ── FIREBASE SYNC ─────────────────────────────────────────────────────────────
+function isFirebaseConfigured(){
+  return window.__firebaseReady && 
+    window.__firebaseDB && 
+    !document.querySelector('script[type="module"]')?.textContent?.includes('PASTE_YOUR_API_KEY_HERE');
+}
+
+async function fbSaveState(state){
+  if(!isFirebaseConfigured())return null;
+  try{
+    const {doc,setDoc}=window.__firebaseOps;
+    const db=window.__firebaseDB;
+    await setDoc(doc(db,'lms','main'),{...state,_updated:new Date().toISOString()});
+    return {ok:true};
+  }catch(e){console.warn('Firebase save error:',e);return null;}
+}
+
+async function fbLoadState(){
+  if(!isFirebaseConfigured())return null;
+  try{
+    const {doc,getDoc}=window.__firebaseOps;
+    const db=window.__firebaseDB;
+    const snap=await getDoc(doc(db,'lms','main'));
+    if(snap.exists()){const d=snap.data();delete d._updated;return{ok:true,data:d};}
+    return{ok:true,data:null};
+  }catch(e){console.warn('Firebase load error:',e);return null;}
+}
+
+async function fbSaveUsers(users){
+  if(!isFirebaseConfigured())return null;
+  try{
+    const {doc,setDoc}=window.__firebaseOps;
+    const db=window.__firebaseDB;
+    await setDoc(doc(db,'lms','users'),{list:users,_updated:new Date().toISOString()});
+    return{ok:true};
+  }catch(e){console.warn('Firebase users save error:',e);return null;}
+}
+
+async function fbLoadUsers(){
+  if(!isFirebaseConfigured())return null;
+  try{
+    const {doc,getDoc}=window.__firebaseOps;
+    const db=window.__firebaseDB;
+    const snap=await getDoc(doc(db,'lms','users'));
+    if(snap.exists()&&snap.data().list)return{ok:true,data:snap.data().list};
+    return{ok:true,data:null};
+  }catch(e){console.warn('Firebase users load error:',e);return null;}
+}
+
+function fbSubscribeState(callback){
+  if(!isFirebaseConfigured())return ()=>{};
+  try{
+    const {doc,onSnapshot}=window.__firebaseOps;
+    const db=window.__firebaseDB;
+    return onSnapshot(doc(db,'lms','main'),(snap)=>{
+      if(snap.exists()){const d=snap.data();delete d._updated;callback(d);}
+    });
+  }catch(e){console.warn('Firebase subscribe error:',e);return ()=>{};}
+}
+
+// Legacy GAS stub (kept for settings page)
+async function gasCall(gasUrl,action,payload){
+  if(!gasUrl)return null;
+  try{
+    const res=await fetch(gasUrl,{method:'POST',body:JSON.stringify({action,...payload})});
+    return await res.json();
+  }catch{return null;}
+}
+
+// ── UI HELPERS ────────────────────────────────────────────────────────────────
+function Bdg({s}){return <span className="badge" style={{background:SC[s]||'#999'}}>{SL[s]||s}</span>;}
+function Fld({l,v}){return <div style={{marginBottom:9}}><div className="fl">{l}</div><div className="fv">{v||'-'}</div></div>;}
+function Mod({title,onClose,children,wide}){
+  return <div className="mo" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+    <div className="mb" style={wide?{maxWidth:900}:{}}>
+      <div className="mh"><span className="mt">{title}</span><button className="mc" onClick={onClose}>✕</button></div>
+      <div className="mbd">{children}</div>
+    </div>
+  </div>;
+}
+function FView({fd:fdata,fn,ft,fu}){
+  if(fu)return <div style={{marginTop:11,padding:'10px 12px',background:'#f5f5f5',border:'1px solid #ddd',borderRadius:6}}>
+    <span style={{fontSize:12,color:'#555',marginRight:12}}>📎 {fn||'ගොනුව'}</span>
+    <a href={fu} target="_blank" rel="noopener noreferrer" style={{color:'#005bb5',fontSize:12,fontWeight:600,textDecoration:'none'}}>Google Drive හි විවෘත කරන්න ↗</a>
+  </div>;
+  if(!fdata)return null;
+  const src=`data:${ft};base64,${fdata}`;
+  return <div style={{marginTop:11,border:'1px solid #ddd',borderRadius:6,overflow:'hidden'}}>
+    {ft?.startsWith('image/')&&<img src={src} alt={fn} style={{maxWidth:'100%',display:'block'}}/>}
+    {ft==='application/pdf'&&<iframe src={src} style={{width:'100%',height:380,border:'none'}} title={fn}/>}
+    <div style={{padding:'7px 12px',background:'#f5f5f5',display:'flex',gap:10,alignItems:'center'}}>
+      <span style={{fontSize:12,color:'#555'}}>📎 {fn}</span>
+      <a href={src} download={fn} style={{color:'#005bb5',fontSize:12,fontWeight:600,textDecoration:'none'}}>⬇ Download</a>
+    </div>
+  </div>;
+}
+function useFile(){
+  const [f,sf]=useState(null);
+  const h=e=>{const fl=e.target.files?.[0];if(!fl)return;const r=new FileReader();r.onload=ev=>sf({data:ev.target.result.split(',')[1],name:fl.name,type:fl.type});r.readAsDataURL(fl);};
+  return [f,sf,h];
+}
+
+// ── LOGIN ─────────────────────────────────────────────────────────────────────
+function LoginPage({onLogin}){
+  const [u,su]=useState('');const [p,sp]=useState('');const [e,se]=useState('');
+  const go=()=>{
+    const users=ldUsers();
+    const usr=users.find(x=>x.active&&x.u===u.trim().toUpperCase()&&x.p===p.trim());
+    if(usr){se('');onLogin(usr);}else se('Invalid username or password.');
+  };
+  return <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#001f5b,#003580,#005bb5)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:16}}>
+    <div style={{background:'#fff',borderRadius:12,boxShadow:'0 20px 60px rgba(0,0,0,.4)',maxWidth:420,width:'100%',overflow:'hidden'}}>
+      <div style={{background:'linear-gradient(135deg,#001f5b,#003580)',padding:'26px 24px 20px',textAlign:'center'}}>
+        <div style={{color:'#fff',fontWeight:800,fontSize:16}}>DE Office – Battaramulla</div>
+        <div style={{color:'#b3d4ff',fontSize:13,marginTop:3}}>Letter Management System</div>
+        <div style={{color:'rgba(255,255,255,.5)',fontSize:11,marginTop:2}}>Western Provincial Council · Engineering Branch</div>
+      </div>
+      <div style={{padding:'24px 28px'}}>
+        <div className="fg"><label className="flb">Username</label><input className="fi" value={u} onChange={e=>su(e.target.value)} onKeyDown={e=>e.key==='Enter'&&go()} placeholder="e.g. DE, CC, MO1…"/></div>
+        <div className="fg"><label className="flb">Password</label><input className="fi" type="password" value={p} onChange={e=>sp(e.target.value)} onKeyDown={e=>e.key==='Enter'&&go()}/></div>
+        {e&&<div className="ab ae">{e}</div>}
+        <button className="btn bp" style={{width:'100%',padding:'10px'}} onClick={go}>Sign In</button>
+      </div>
+    </div>
+    <div style={{color:'rgba(255,255,255,.4)',fontSize:11,marginTop:16}}>© 2026 Divisional Engineer's Office, Battaramulla</div>
+  </div>;
+}
+
+// ── TOP NAV ───────────────────────────────────────────────────────────────────
+function TopNav({user,page,setPage,onLogout,gasUrl,syncState}){
+  const isAdmin=['DE','CC'].includes(user.r);
+  const tabs=[
+    {id:'dash',l:'🏠 Dashboard'},
+    {id:'in',l:'📥 In Letters'},
+    ...(!['STO','TO'].includes(user.r)?[{id:'out',l:'📤 Out Letters'}]:[]),
+    ...(isAdmin?[{id:'rep',l:'📊 Reports'}]:[]),
+    ...(user.r==='DE'?[{id:'users',l:'👥 Users'},{id:'settings',l:'⚙️ Settings'}]:[]),
+  ];
+  return <div style={{background:'linear-gradient(to right,#001f5b,#003580)',boxShadow:'0 2px 10px rgba(0,0,0,.2)',position:'sticky',top:0,zIndex:100}}>
+    <div className="topbar-row" style={{display:'flex',alignItems:'center',padding:'8px 18px',gap:10,borderBottom:'1px solid rgba(255,255,255,.1)'}}>
+      <div style={{flex:1}}>
+        <div style={{color:'#fff',fontWeight:800,fontSize:14}}>DE Office – Battaramulla &nbsp;|&nbsp; Letter Management System</div>
+        <div style={{color:'rgba(255,255,255,.5)',fontSize:11}}>Western Provincial Council · Engineering Branch</div>
+      </div>
+      <div style={{textAlign:'right',marginRight:6}}>
+        <div style={{color:'#fff',fontSize:12,fontWeight:600}}>{user.d}</div>
+        <div style={{color:'rgba(255,255,255,.5)',fontSize:11}}>{user.r} · {user.u}</div>
+      </div>
+      <button className="btn" style={{background:'rgba(255,255,255,.12)',border:'1px solid rgba(255,255,255,.2)',color:'#fff',fontSize:12}} onClick={onLogout}>Logout</button>
+    </div>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'0 18px'}}>
+      <div className="nb-scroll" style={{display:'flex'}}>
+        {tabs.map(t=><button key={t.id} className={`nb${page===t.id?' act':''}`} style={{flexShrink:0}} onClick={()=>setPage(t.id)}>{t.l}</button>)}
+      </div>
+      {gasUrl&&<div style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:'rgba(255,255,255,.6)'}}>
+        <span className={`sync-dot${syncState==='ok'?'':syncState==='busy'?' busy':' off'}`}></span>
+        {syncState==='ok'?'Synced':syncState==='busy'?'Syncing…':'Offline'}
+      </div>}
+    </div>
+  </div>;
+}
+
+function SCard({label,value,color,onClick}){
+  return <div className="sc" onClick={onClick} style={{borderTop:`4px solid ${color}`,cursor:onClick?'pointer':'default'}}>
+    <div className="sv" style={{color}}>{value}</div>
+    <div className="sl">{label}</div>
+    {onClick&&<div style={{fontSize:10,color:'#aaa',marginTop:3}}>Click to view</div>}
+  </div>;
+}
+
+// ── UPLOAD IN FORM ────────────────────────────────────────────────────────────
+function UpInForm({user,onClose,state,onSave,allUsers}){
+  const [f,sf]=useState({dr:'',from:'',fromO:'',to:'',toO:'',subj:'',desc:'',asgn:[]});
+  const [fl,,hf]=useFile();
+  const set=(k,v)=>sf(x=>({...x,[k]:v}));
+  const tog=u=>sf(x=>({...x,asgn:x.asgn.includes(u)?x.asgn.filter(a=>a!==u):[...x.asgn,u]}));
+  const assignable=allUsers.filter(u=>u.active&&u.u!=='DE');
+  const sub=()=>{
+    if(!f.dr||!f.from||!f.subj){alert('Fill required fields.');return;}
+    const ref=mkRef('In',state.inC);
+    const frm=f.from==='Others'?f.fromO:f.from;
+    const to=f.to==='Others'?f.toO:f.to;
+    const asgn=f.asgn.map(u=>({u,d:allUsers.find(x=>x.u===u).d,s:'pending',seen:null}));
+    onSave({id:crypto.randomUUID(),ref,dr:f.dr,du:new Date().toISOString(),by:user.u,from:frm,to:to||'DE',subj:f.subj,desc:f.desc,fd:fl?.data,fn:fl?.name,ft:fl?.type,asgn,status:user.r==='DE'?'de_reviewed':'pending_de',note:''});
+    onClose();
+  };
+  return <div>
+    <div className="g2">
+      <div className="fg"><label className="flb">Date Received *</label><input type="date" className="fi" value={f.dr} onChange={e=>set('dr',e.target.value)}/></div>
+      <div className="fg"><label className="flb">To</label>
+        <select className="fi" value={f.to} onChange={e=>set('to',e.target.value)}><option value="">-- Select --</option>{TO_OPTS_IN.map(o=><option key={o}>{o}</option>)}</select>
+        {f.to==='Others'&&<input className="fi" style={{marginTop:5}} placeholder="Specify…" value={f.toO} onChange={e=>set('toO',e.target.value)}/>}
+      </div>
+      <div className="fg" style={{gridColumn:'span 2'}}><label className="flb">From *</label>
+        <select className="fi" value={f.from} onChange={e=>set('from',e.target.value)}><option value="">-- Select --</option>{FROM_OPTS.map(o=><option key={o}>{o}</option>)}</select>
+        {f.from==='Others'&&<input className="fi" style={{marginTop:5}} placeholder="Specify…" value={f.fromO} onChange={e=>set('fromO',e.target.value)}/>}
+      </div>
+      <div className="fg" style={{gridColumn:'span 2'}}><label className="flb">Subject *</label><input className="fi" value={f.subj} onChange={e=>set('subj',e.target.value)}/></div>
+    </div>
+    <div className="fg"><label className="flb">Description</label><textarea className="fi" style={{height:65,resize:'vertical'}} value={f.desc} onChange={e=>set('desc',e.target.value)}/></div>
+    <div className="fg"><label className="flb">Attach File</label><input type="file" onChange={hf} accept="image/*,.pdf,.doc,.docx" style={{marginTop:4}}/>{fl&&<div style={{fontSize:12,color:'#27ae60',marginTop:4}}>✅ {fl.name}</div>}</div>
+    {user.r==='DE'&&<div className="fg"><label className="flb">Assign To</label>
+      <div style={{display:'flex',flexWrap:'wrap',marginTop:5}}>
+        {assignable.map(a=><label key={a.u} className={`at${f.asgn.includes(a.u)?' sel':''}`}><input type="checkbox" checked={f.asgn.includes(a.u)} onChange={()=>tog(a.u)} style={{margin:0}}/> {a.d}</label>)}
+      </div>
+    </div>}
+    <div className="fr" style={{justifyContent:'flex-end',marginTop:6}}>
+      <button className="btn bs" onClick={onClose}>Cancel</button>
+      <button className="btn bp" onClick={sub}>Upload Letter</button>
+    </div>
+  </div>;
+}
+
+function UpOutForm({user,onClose,state,onSave}){
+  const [f,sf]=useState({ds:'',subj:'',to:'',toO:'',desc:''});
+  const [fl,,hf]=useFile();
+  const set=(k,v)=>sf(x=>({...x,[k]:v}));
+  const sub=()=>{
+    if(!f.ds||!f.subj||!f.to){alert('Fill required fields.');return;}
+    const ref=mkRef('Out',state.outC);
+    onSave({id:crypto.randomUUID(),ref,ds:f.ds,du:new Date().toISOString(),by:user.u,from:'DE Battaramulla',to:f.to==='Others'?f.toO:f.to,subj:f.subj,desc:f.desc,fd:fl?.data,fn:fl?.name,ft:fl?.type});
+    onClose();
+  };
+  return <div>
+    <div className="g2">
+      <div className="fg"><label className="flb">Date Sent *</label><input type="date" className="fi" value={f.ds} onChange={e=>set('ds',e.target.value)}/></div>
+      <div className="fg"><label className="flb">From</label><input className="fi" value="DE Battaramulla" readOnly style={{background:'#f5f5f5',color:'#888'}}/></div>
+      <div className="fg" style={{gridColumn:'span 2'}}><label className="flb">To *</label>
+        <select className="fi" value={f.to} onChange={e=>set('to',e.target.value)}><option value="">-- Select --</option>{OUT_TO.map(o=><option key={o}>{o}</option>)}</select>
+        {f.to==='Others'&&<input className="fi" style={{marginTop:5}} placeholder="Specify…" value={f.toO} onChange={e=>set('toO',e.target.value)}/>}
+      </div>
+      <div className="fg" style={{gridColumn:'span 2'}}><label className="flb">Subject *</label><input className="fi" value={f.subj} onChange={e=>set('subj',e.target.value)}/></div>
+    </div>
+    <div className="fg"><label className="flb">Description</label><textarea className="fi" style={{height:65,resize:'vertical'}} value={f.desc} onChange={e=>set('desc',e.target.value)}/></div>
+    <div className="fg"><label className="flb">Attach File</label><input type="file" onChange={hf} accept="image/*,.pdf,.doc,.docx" style={{marginTop:4}}/>{fl&&<div style={{fontSize:12,color:'#27ae60',marginTop:4}}>✅ {fl.name}</div>}</div>
+    <div className="fr" style={{justifyContent:'flex-end'}}>
+      <button className="btn bs" onClick={onClose}>Cancel</button>
+      <button className="btn bp" onClick={sub}>Upload Out Letter</button>
+    </div>
+  </div>;
+}
+
+// ── IN LETTER MODAL ───────────────────────────────────────────────────────────
+function InModal({letter,user,onClose,onUpdate,allUsers}){
+  const [note,setNote]=useState(letter.note||'');
+  const [editN,setEditN]=useState(false);
+  const [showA,setShowA]=useState(false);
+  const [newA,setNewA]=useState(letter.asgn.map(a=>a.u));
+  const isDE=user.r==='DE',isCC=user.r==='CC';
+  const assignable=allUsers.filter(u=>u.active&&u.u!=='DE');
+
+  useEffect(()=>{
+    const my=letter.asgn.find(a=>a.u===user.u);
+    if(my&&!my.seen){
+      const upd=letter.asgn.map(a=>a.u===user.u?{...a,seen:new Date().toISOString()}:a);
+      onUpdate(letter.id,{asgn:upd});
+    }
+  },[]);
+
+  const updStatus=s=>{
+    const upd=letter.asgn.map(a=>a.u===user.u?{...a,s}:a);
+    const allD=upd.every(a=>a.s==='done'),anyO=upd.some(a=>a.s==='ongoing');
+    let ns=letter.status;
+    if(letter.status!=='pending_de'){ns=allD?'done':anyO?'ongoing':'de_reviewed';}
+    onUpdate(letter.id,{asgn:upd,status:ns});
+  };
+  const saveNote=()=>{onUpdate(letter.id,{note});setEditN(false);};
+  const approve=()=>onUpdate(letter.id,{status:'de_reviewed',note,deAt:new Date().toISOString()});
+  const saveA=()=>{
+    const asgn=newA.map(u=>({u,d:allUsers.find(x=>x.u===u).d,s:letter.asgn.find(a=>a.u===u)?.s||'pending',seen:letter.asgn.find(a=>a.u===u)?.seen||null}));
+    onUpdate(letter.id,{asgn});setShowA(false);
+  };
+  const my=letter.asgn.find(a=>a.u===user.u);
+  const canEdit=my&&letter.status!=='pending_de';
+
+  return <Mod title={`📄 ${letter.ref}`} onClose={onClose}>
+    <div className="g2">
+      <Fld l="Reference No" v={letter.ref}/><Fld l="Date Received" v={fd(letter.dr)}/>
+      <Fld l="From" v={letter.from}/><Fld l="To" v={letter.to}/>
+      <Fld l="Uploaded By" v={letter.by}/><Fld l="Date Uploaded" v={fdt(letter.du)}/>
+      <Fld l="Status" v={<Bdg s={letter.status}/>}/>{letter.deAt&&<Fld l="DE Reviewed" v={fdt(letter.deAt)}/>}
+    </div>
+    <Fld l="Subject" v={letter.subj}/>
+    {letter.desc&&<Fld l="Description" v={letter.desc}/>}
+    <FView fd={letter.fd} fn={letter.fn} ft={letter.ft} fu={letter.fu}/>
+
+    {(isDE||letter.note)&&<div className="na">
+      <div style={{fontWeight:700,color:'#003580',marginBottom:7,fontSize:13}}>📝 DE Note / Instructions</div>
+      {isDE&&editN
+        ?<><textarea className="fi" style={{height:75}} value={note} onChange={e=>setNote(e.target.value)} placeholder="Instructions…"/>
+          <div className="fr" style={{marginTop:7}}>
+            <button className="btn bp bsm" onClick={saveNote}>Save</button>
+            <button className="btn bs bsm" onClick={()=>{setNote(letter.note||'');setEditN(false);}}>Cancel</button>
+          </div></>
+        :<><div style={{fontSize:13,color:'#333',whiteSpace:'pre-wrap',minHeight:22}}>{letter.note||<span style={{color:'#bbb'}}>No note.</span>}</div>
+          {isDE&&<button className="btn bp bsm" style={{marginTop:7}} onClick={()=>setEditN(true)}>✏️ Edit Note</button>}</>}
+    </div>}
+
+    {letter.asgn.length>0&&<div style={{marginTop:14}}>
+      <div style={{fontWeight:700,color:'#003580',marginBottom:7,fontSize:13}}>👥 Assigned Members</div>
+      {letter.asgn.map(a=><div key={a.u} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'7px 11px',background:'#f9f9f9',border:'1px solid #eee',borderRadius:6,marginBottom:5}}>
+        <div>
+          <span style={{fontSize:13,fontWeight:600}}>{a.d}</span>
+          {isDE&&<span style={{marginLeft:9,fontSize:11,fontWeight:600,color:a.seen?'#27ae60':'#e74c3c'}}>
+            {a.seen?`👁 Seen ${fdt(a.seen)}`:'👁 Not Seen'}
+          </span>}
+        </div>
+        <div className="fr">
+          <Bdg s={a.s}/>
+          {a.u===user.u&&canEdit&&<select value={a.s} onChange={e=>updStatus(e.target.value)} style={{fontSize:12,padding:'3px 7px',borderRadius:4,border:'1px solid #ccc'}}>
+            <option value="pending">Pending</option>
+            <option value="attended">Attended</option>
+            <option value="ongoing">Ongoing</option>
+            <option value="done">Done</option>
+          </select>}
+        </div>
+      </div>)}
+    </div>}
+
+    {isDE&&<div style={{marginTop:14,display:'flex',gap:8,flexWrap:'wrap'}}>
+      <button className="btn bp bsm" onClick={()=>setShowA(true)}>👤 Manage Assignees</button>
+      {letter.status==='pending_de'&&<button className="btn bg" onClick={approve}>✅ Approve & DE Reviewed</button>}
+    </div>}
+    {isDE&&letter.status==='pending_de'&&<div className="ab aw" style={{marginTop:12}}><strong>⚡ Action Required:</strong> Review, add note, then Approve.</div>}
+
+    {showA&&<Mod title="Manage Assignees" onClose={()=>setShowA(false)}>
+      <div style={{display:'flex',flexWrap:'wrap'}}>
+        {assignable.map(a=><label key={a.u} className={`at${newA.includes(a.u)?' sel':''}`}>
+          <input type="checkbox" checked={newA.includes(a.u)} onChange={()=>setNewA(p=>p.includes(a.u)?p.filter(x=>x!==a.u):[...p,a.u])} style={{margin:0}}/> {a.d}
+        </label>)}
+      </div>
+      <div className="fr" style={{justifyContent:'flex-end',marginTop:13}}>
+        <button className="btn bs" onClick={()=>setShowA(false)}>Cancel</button>
+        <button className="btn bp" onClick={saveA}>Save</button>
+      </div>
+    </Mod>}
+  </Mod>;
+}
+
+function OutModal({letter,onClose}){
+  return <Mod title={`📤 ${letter.ref}`} onClose={onClose}>
+    <div className="g2">
+      <Fld l="Reference No" v={letter.ref}/><Fld l="Date Sent" v={fd(letter.ds)}/>
+      <Fld l="From" v={letter.from}/><Fld l="To" v={letter.to}/>
+      <Fld l="Uploaded By" v={letter.by}/><Fld l="Date Uploaded" v={fdt(letter.du)}/>
+    </div>
+    <Fld l="Subject" v={letter.subj}/>
+    {letter.desc&&<Fld l="Description" v={letter.desc}/>}
+    <FView fd={letter.fd} fn={letter.fn} ft={letter.ft} fu={letter.fu}/>
+  </Mod>;
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────────────────────────
+function Dashboard({user,state,setPage,setFS}){
+  const {inL}=state;
+  const isDE=user.r==='DE',isCC=user.r==='CC',isAdmin=isDE||isCC;
+  const tot=inL.length,pde=inL.filter(l=>l.status==='pending_de').length;
+  const don=inL.filter(l=>l.status==='done').length,ong=inL.filter(l=>l.status==='ongoing').length;
+  const my=inL.filter(l=>l.asgn.some(a=>a.u===user.u));
+  const myP=my.filter(l=>l.asgn.find(a=>a.u===user.u)?.s==='pending');
+  const myO=my.filter(l=>l.asgn.find(a=>a.u===user.u)?.s==='ongoing');
+  const myD=my.filter(l=>l.asgn.find(a=>a.u===user.u)?.s==='done');
+  const unseen=isDE?inL.reduce((s,l)=>s+l.asgn.filter(a=>!a.seen).length,0):0;
+  const go=s=>{setFS(s);setPage('in');};
+  return <div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:13,marginBottom:22}}>
+      {isAdmin&&<>
+        <SCard label="Total In Letters" value={tot} color="#003580" onClick={()=>go('')}/>
+        <SCard label="Pending DE Review" value={pde} color="#e67e22" onClick={()=>go('pending_de')}/>
+        <SCard label="Ongoing" value={ong} color="#8e44ad" onClick={()=>go('ongoing')}/>
+        <SCard label="Completed" value={don} color="#27ae60" onClick={()=>go('done')}/>
+        <SCard label="Out Letters" value={state.outL.length} color="#16a085" onClick={()=>setPage('out')}/>
+      </>}
+      {(isCC||!isAdmin)&&<>
+        <SCard label="Assigned to Me" value={my.length} color="#003580" onClick={()=>go('')}/>
+        <SCard label="My Pending" value={myP.length} color="#c0392b"/>
+        <SCard label="My Ongoing" value={myO.length} color="#d35400"/>
+        <SCard label="My Done" value={myD.length} color="#27ae60"/>
+      </>}
+    </div>
+    {isDE&&unseen>0&&<div className="ab aw">👁 <strong>{unseen}</strong> assigned task{unseen>1?'s':''} not yet seen by assignees.</div>}
+    {isDE&&pde>0&&<div className="ab aw">⚡ <strong>{pde}</strong> letter{pde>1?'s':''} pending your review.</div>}
+    <div style={{fontSize:13,color:'#666',fontStyle:'italic',marginTop:8}}>Welcome, <strong>{user.d}</strong>.</div>
+  </div>;
+}
+
+// ── IN LETTERS PAGE ───────────────────────────────────────────────────────────
+function InPage({user,state,onAdd,onUpd,fs,setFS,allUsers}){
+  const [sel,setSel]=useState(null);
+  const [showUp,setShowUp]=useState(false);
+  const [srch,setSrch]=useState('');
+  const [sf2,setSf2]=useState(fs||'');
+  const [pf,setPf]=useState('');
+  const [df,setDf]=useState('');const [dt,setDt]=useState('');
+  useEffect(()=>{if(fs!==undefined){setSf2(fs);setFS(undefined);}},[fs]);
+  const isDE=user.r==='DE',isCC=user.r==='CC',isAdmin=isDE||isCC,isST=['STO','TO'].includes(user.r);
+  const assignable=allUsers.filter(u=>u.active&&u.u!=='DE');
+  let ls=state.inL;
+  if(isST) ls=ls.filter(l=>l.asgn.some(a=>a.u===user.u)&&l.status!=='pending_de');
+  else if(!isAdmin) ls=ls.filter(l=>l.asgn.some(a=>a.u===user.u));
+  if(srch) ls=ls.filter(l=>l.ref.toLowerCase().includes(srch.toLowerCase())||l.subj.toLowerCase().includes(srch.toLowerCase())||l.from.toLowerCase().includes(srch.toLowerCase()));
+  if(sf2) ls=ls.filter(l=>l.status===sf2);
+  if(isAdmin&&pf) ls=ls.filter(l=>l.asgn.some(a=>a.u===pf));
+  if(df) ls=ls.filter(l=>l.dr>=df);
+  if(dt) ls=ls.filter(l=>l.dr<=dt);
+  return <div>
+    <div className="fr" style={{justifyContent:'space-between',marginBottom:13,flexWrap:'wrap',gap:7}}>
+      <div className="fr">
+        <input className="fi" style={{width:165}} placeholder="🔍 Search…" value={srch} onChange={e=>setSrch(e.target.value)}/>
+        <select className="fi" style={{width:155}} value={sf2} onChange={e=>setSf2(e.target.value)}>
+          <option value="">All Status</option><option value="pending_de">Pending DE</option>
+          <option value="de_reviewed">DE Reviewed</option><option value="ongoing">Ongoing</option><option value="done">Done</option>
+        </select>
+        {isAdmin&&<select className="fi" style={{width:170}} value={pf} onChange={e=>setPf(e.target.value)}>
+          <option value="">All Assignees</option>{assignable.map(a=><option key={a.u} value={a.u}>{a.d}</option>)}
+        </select>}
+        <input type="date" className="fi" style={{width:130}} value={df} onChange={e=>setDf(e.target.value)}/>
+        <input type="date" className="fi" style={{width:130}} value={dt} onChange={e=>setDt(e.target.value)}/>
+      </div>
+      {isAdmin&&<button className="btn bp" onClick={()=>setShowUp(true)}>+ Upload In Letter</button>}
+    </div>
+    {ls.length===0?<div style={{textAlign:'center',color:'#aaa',padding:50}}>No letters found.</div>:
+    <div className="tw"><table>
+      <thead><tr><th>Ref No</th><th>Date</th><th>From</th><th>Subject</th><th>Assignees</th>{isDE&&<th>Seen?</th>}<th>Status</th><th></th></tr></thead>
+      <tbody>{ls.map(l=>{
+        const allS=l.asgn.length>0&&l.asgn.every(a=>a.seen);
+        const noneS=l.asgn.length>0&&l.asgn.every(a=>!a.seen);
+        return <tr key={l.id} onClick={()=>setSel(l)} style={{cursor:'pointer'}}>
+          <td><strong style={{color:'#003580'}}>{l.ref}</strong></td>
+          <td>{fd(l.dr)}</td><td>{l.from}</td><td>{l.subj}</td>
+          <td style={{fontSize:12}}>{l.asgn.map(a=>a.d).join(', ')||'-'}</td>
+          {isDE&&<td>{l.asgn.length===0?'-':allS?<span style={{color:'#27ae60',fontSize:12,fontWeight:600}}>✅ All</span>:noneS?<span style={{color:'#e74c3c',fontSize:12,fontWeight:600}}>❌ None</span>:<span style={{color:'#e67e22',fontSize:12,fontWeight:600}}>⚠️ Partial</span>}</td>}
+          <td><Bdg s={l.status}/></td>
+          <td><button className="btn bp bsm" onClick={e=>{e.stopPropagation();setSel(l);}}>View</button></td>
+        </tr>;
+      })}</tbody>
+    </table></div>}
+    {sel&&<InModal letter={state.inL.find(l=>l.id===sel.id)||sel} user={user} onClose={()=>setSel(null)} onUpdate={(id,p)=>onUpd(id,p)} allUsers={allUsers}/>}
+    {showUp&&<Mod title="Upload Incoming Letter" onClose={()=>setShowUp(false)}>
+      <UpInForm user={user} onClose={()=>setShowUp(false)} state={state} onSave={l=>{onAdd(l);setShowUp(false);}} allUsers={allUsers}/>
+    </Mod>}
+  </div>;
+}
+
+function OutPage({user,state,onAdd,allUsers}){
+  const [sel,setSel]=useState(null);const [showUp,setShowUp]=useState(false);
+  const [srch,setSrch]=useState('');const [df,setDf]=useState('');const [dt,setDt]=useState('');
+  const isAdmin=['DE','CC'].includes(user.r);
+  let ls=state.outL;
+  if(!isAdmin) ls=ls.filter(l=>l.by===user.u);
+  if(srch) ls=ls.filter(l=>l.ref.toLowerCase().includes(srch.toLowerCase())||l.subj.toLowerCase().includes(srch.toLowerCase()));
+  if(df) ls=ls.filter(l=>l.ds>=df);if(dt) ls=ls.filter(l=>l.ds<=dt);
+  return <div>
+    <div className="fr" style={{justifyContent:'space-between',marginBottom:13}}>
+      <div className="fr">
+        <input className="fi" style={{width:200}} placeholder="🔍 Search…" value={srch} onChange={e=>setSrch(e.target.value)}/>
+        <input type="date" className="fi" style={{width:130}} value={df} onChange={e=>setDf(e.target.value)}/>
+        <input type="date" className="fi" style={{width:130}} value={dt} onChange={e=>setDt(e.target.value)}/>
+      </div>
+      {['DE','CC','MO','DO'].includes(user.r)&&<button className="btn bp" onClick={()=>setShowUp(true)}>+ Upload Out Letter</button>}
+    </div>
+    {ls.length===0?<div style={{textAlign:'center',color:'#aaa',padding:50}}>No outgoing letters.</div>:
+    <div className="tw"><table>
+      <thead><tr><th>Ref No</th><th>Date Sent</th><th>From</th><th>To</th><th>Subject</th><th>By</th><th></th></tr></thead>
+      <tbody>{ls.map(l=><tr key={l.id} style={{cursor:'pointer'}} onClick={()=>setSel(l)}>
+        <td><strong style={{color:'#003580'}}>{l.ref}</strong></td>
+        <td>{fd(l.ds)}</td><td>{l.from}</td><td>{l.to}</td><td>{l.subj}</td><td>{l.by}</td>
+        <td><button className="btn bp bsm" onClick={e=>{e.stopPropagation();setSel(l);}}>View</button></td>
+      </tr>)}</tbody>
+    </table></div>}
+    {sel&&<OutModal letter={sel} onClose={()=>setSel(null)}/>}
+    {showUp&&<Mod title="Upload Outgoing Letter" onClose={()=>setShowUp(false)}>
+      <UpOutForm user={user} onClose={()=>setShowUp(false)} state={state} onSave={l=>{onAdd(l);setShowUp(false);}}/>
+    </Mod>}
+  </div>;
+}
+
+function RepPage({state,allUsers}){
+  const [pf,setPf]=useState('');const [sf,setSf]=useState('');const [df,setDf]=useState('');const [dt,setDt]=useState('');
+  const {inL,outL}=state;
+  const assignable=allUsers.filter(u=>u.active&&u.u!=='DE');
+  let ls=inL;
+  if(pf) ls=ls.filter(l=>l.asgn.some(a=>a.u===pf));
+  if(sf) ls=ls.filter(l=>l.status===sf);
+  if(df) ls=ls.filter(l=>l.dr>=df);if(dt) ls=ls.filter(l=>l.dr<=dt);
+  return <div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:11,marginBottom:20}}>
+      <SCard label="Total In" value={inL.length} color="#003580"/>
+      <SCard label="Pending DE" value={inL.filter(l=>l.status==='pending_de').length} color="#e67e22"/>
+      <SCard label="Ongoing" value={inL.filter(l=>l.status==='ongoing').length} color="#8e44ad"/>
+      <SCard label="Done" value={inL.filter(l=>l.status==='done').length} color="#27ae60"/>
+      <SCard label="Out Letters" value={outL.length} color="#16a085"/>
+    </div>
+    <div className="fr" style={{marginBottom:13,flexWrap:'wrap'}}>
+      <select className="fi" style={{width:190}} value={pf} onChange={e=>setPf(e.target.value)}><option value="">All Assignees</option>{assignable.map(a=><option key={a.u} value={a.u}>{a.d}</option>)}</select>
+      <select className="fi" style={{width:155}} value={sf} onChange={e=>setSf(e.target.value)}><option value="">All Status</option><option value="pending_de">Pending DE</option><option value="de_reviewed">DE Reviewed</option><option value="ongoing">Ongoing</option><option value="done">Done</option></select>
+      <input type="date" className="fi" style={{width:130}} value={df} onChange={e=>setDf(e.target.value)}/>
+      <input type="date" className="fi" style={{width:130}} value={dt} onChange={e=>setDt(e.target.value)}/>
+      <button className="btn bp bsm" onClick={()=>window.print()}>🖨 Print</button>
+      <a href={DRIVE} target="_blank" rel="noopener noreferrer" style={{padding:'5px 13px',background:'#34a853',color:'#fff',borderRadius:6,fontSize:12,fontWeight:600,textDecoration:'none'}}>📁 Drive</a>
+    </div>
+    <div className="tw"><table>
+      <thead><tr><th>Ref No</th><th>Date</th><th>From</th><th>Subject</th><th>Assignees & Seen</th><th>Status</th><th>DE Note</th></tr></thead>
+      <tbody>{ls.map(l=><tr key={l.id}>
+        <td><strong>{l.ref}</strong></td><td>{fd(l.dr)}</td><td>{l.from}</td><td>{l.subj}</td>
+        <td style={{fontSize:11}}>{l.asgn.map(a=><div key={a.u} style={{marginBottom:2}}>{a.d}: <Bdg s={a.s}/> <span style={{color:a.seen?'#27ae60':'#e74c3c',fontWeight:600,fontSize:11}}>{a.seen?'👁':'❌'}</span></div>)}</td>
+        <td><Bdg s={l.status}/></td>
+        <td style={{fontSize:12,color:'#555'}}>{l.note||'-'}</td>
+      </tr>)}</tbody>
+    </table></div>
+  </div>;
+}
+
+// ── USER MANAGEMENT PAGE (DE only) ────────────────────────────────────────────
+function UsersPage({allUsers,onSaveUsers}){
+  const [users,setUsers]=useState(allUsers);
+  const [showAdd,setShowAdd]=useState(false);
+  const [editUser,setEditUser]=useState(null);
+  const [newU,setNewU]=useState({u:'',p:'',d:'',r:'MO',active:true});
+  const [msg,setMsg]=useState('');
+  const [pwdModal,setPwdModal]=useState(null); // user being changed password
+  const [newPwd,setNewPwd]=useState('');
+
+  const saveAll=(u)=>{setUsers(u);onSaveUsers(u);};
+  const toggleActive=(username)=>{
+    if(username==='DE'){alert('Cannot deactivate DE.');return;}
+    saveAll(users.map(u=>u.u===username?{...u,active:!u.active}:u));
+  };
+  const deleteUser=(username)=>{
+    if(username==='DE'){alert('Cannot delete DE.');return;}
+    if(!confirm(`Delete user ${username}?`))return;
+    saveAll(users.filter(u=>u.u!==username));
+  };
+  const addUser=()=>{
+    if(!newU.u||!newU.p||!newU.d){setMsg('Fill all fields.');return;}
+    if(users.find(u=>u.u===newU.u.toUpperCase())){setMsg('Username already exists.');return;}
+    saveAll([...users,{...newU,u:newU.u.toUpperCase(),active:true}]);
+    setNewU({u:'',p:'',d:'',r:'MO',active:true});setShowAdd(false);setMsg('');
+  };
+  const changePwd=()=>{
+    if(!newPwd||newPwd.length<4){setMsg('Password must be at least 4 characters.');return;}
+    saveAll(users.map(u=>u.u===pwdModal.u?{...u,p:newPwd}:u));
+    setPwdModal(null);setNewPwd('');setMsg('');
+  };
+
+  return <div>
+    <div className="fr" style={{justifyContent:'space-between',marginBottom:14}}>
+      <div style={{fontSize:13,color:'#666'}}>{users.filter(u=>u.active).length} active / {users.length} total users</div>
+      <button className="btn bp" onClick={()=>setShowAdd(true)}>+ Add User</button>
+    </div>
+    {msg&&<div className="ab ae" style={{marginBottom:10}}>{msg}</div>}
+    <div className="tw"><table>
+      <thead><tr><th>Username</th><th>Display Name</th><th>Role</th><th>Password</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>{users.map(u=><tr key={u.u}>
+        <td><strong style={{color:'#003580'}}>{u.u}</strong></td>
+        <td>{u.d}</td>
+        <td><span className="chip">{u.r}</span></td>
+        <td><span style={{fontFamily:'monospace',fontSize:12,color:'#888'}}>{'•'.repeat(u.p.length)}</span></td>
+        <td><span style={{fontSize:12,fontWeight:600,color:u.active?'#27ae60':'#e74c3c'}}>{u.active?'Active':'Inactive'}</span></td>
+        <td>
+          <div className="fr">
+            <button className="btn bp bsm" onClick={()=>setPwdModal(u)}>🔑 Password</button>
+            {u.u!=='DE'&&<>
+              <button className="btn bsm" style={{background:u.active?'#e67e22':'#27ae60',color:'#fff'}} onClick={()=>toggleActive(u.u)}>{u.active?'Deactivate':'Activate'}</button>
+              <button className="btn br bsm" onClick={()=>deleteUser(u.u)}>🗑</button>
+            </>}
+          </div>
+        </td>
+      </tr>)}</tbody>
+    </table></div>
+
+    {showAdd&&<Mod title="Add New User" onClose={()=>{setShowAdd(false);setMsg('');}}>
+      <div className="g2">
+        <div className="fg"><label className="flb">Username *</label><input className="fi" value={newU.u} onChange={e=>setNewU(x=>({...x,u:e.target.value.toUpperCase()}))} placeholder="e.g. MO5"/></div>
+        <div className="fg"><label className="flb">Password *</label><input className="fi" value={newU.p} onChange={e=>setNewU(x=>({...x,p:e.target.value}))} placeholder="min 4 chars"/></div>
+        <div className="fg" style={{gridColumn:'span 2'}}><label className="flb">Display Name *</label><input className="fi" value={newU.d} onChange={e=>setNewU(x=>({...x,d:e.target.value}))} placeholder="e.g. Management Officer 5"/></div>
+        <div className="fg"><label className="flb">Role *</label>
+          <select className="fi" value={newU.r} onChange={e=>setNewU(x=>({...x,r:e.target.value}))}>
+            {ROLES.filter(r=>r!=='DE').map(r=><option key={r}>{r}</option>)}
+          </select>
+        </div>
+      </div>
+      {msg&&<div className="ab ae">{msg}</div>}
+      <div className="fr" style={{justifyContent:'flex-end',marginTop:8}}>
+        <button className="btn bs" onClick={()=>{setShowAdd(false);setMsg('');}}>Cancel</button>
+        <button className="btn bg" onClick={addUser}>✅ Add User</button>
+      </div>
+    </Mod>}
+
+    {pwdModal&&<Mod title={`Change Password – ${pwdModal.u}`} onClose={()=>{setPwdModal(null);setNewPwd('');setMsg('');}}>
+      <div className="fg"><label className="flb">New Password *</label><input className="fi" type="text" value={newPwd} onChange={e=>setNewPwd(e.target.value)} placeholder="Enter new password (min 4 chars)"/></div>
+      {msg&&<div className="ab ae">{msg}</div>}
+      <div className="fr" style={{justifyContent:'flex-end',marginTop:8}}>
+        <button className="btn bs" onClick={()=>{setPwdModal(null);setNewPwd('');setMsg('');}}>Cancel</button>
+        <button className="btn bg" onClick={changePwd}>✅ Save Password</button>
+      </div>
+    </Mod>}
+  </div>;
+}
+
+// ── SETTINGS PAGE (DE only) ───────────────────────────────────────────────────
+function SettingsPage({gasUrl,onSaveGAS,state,onSaveState}){
+  const [url,setUrl]=useState(gasUrl);
+  const [testing,setTesting]=useState(false);
+  const [testResult,setTestResult]=useState('');
+  const [importing,setImporting]=useState(false);
+
+  const saveUrl=()=>{onSaveGAS(url.trim());setTestResult('');};
+  const testConn=async()=>{
+    if(!url.trim()){setTestResult('error:Enter URL first.');return;}
+    setTesting(true);setTestResult('');
+    const r=await gasCall(url.trim(),'ping',{});
+    setTesting(false);
+    if(r&&r.ok)setTestResult('ok:Connected! Google Sheets sync is working.');
+    else setTestResult('error:Connection failed. Check the URL and try again.');
+  };
+  const exportData=()=>{
+    const json=JSON.stringify(state,null,2);
+    const blob=new Blob([json],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='DE_LMS_backup.json';a.click();
+  };
+  const importData=(e)=>{
+    const fl=e.target.files?.[0];if(!fl)return;
+    const r=new FileReader();
+    r.onload=ev=>{
+      try{
+        const d=JSON.parse(ev.target.result);
+        if(d.inL&&d.outL){onSaveState(d);alert('Data imported successfully!');}
+        else alert('Invalid backup file.');
+      }catch{alert('Invalid JSON file.');}
+    };
+    r.readAsText(fl);
+  };
+
+  return <div>
+    {/* Google Sheets Sync */}
+    <div style={{background:'#fff',border:'1px solid #e0e0e0',borderRadius:10,padding:20,marginBottom:20}}>
+      <h3 style={{color:'#003580',marginBottom:14,fontSize:14}}>☁️ Cloud Sync (Firebase – Multi-device)</h3>
+      {isFirebaseConfigured()
+        ?<div className="ab ag" style={{marginBottom:14}}>✅ <strong>Firebase is active.</strong> All data syncs automatically across all devices in real-time. No extra setup needed.</div>
+        :<div className="ab aw" style={{marginBottom:14}}>
+          <strong>⚠️ Firebase not configured yet.</strong> Data is currently stored locally only.<br/><br/>
+          <strong>To enable multi-device sync (5 minutes):</strong><br/>
+          1. Go to <a href="https://console.firebase.google.com" target="_blank" style={{color:'#005bb5'}}>console.firebase.google.com</a> → Create project (free)<br/>
+          2. Add a Web App → copy the config values<br/>
+          3. Enable <strong>Firestore Database</strong> → Build → Firestore → Create database → Test mode<br/>
+          4. Open this HTML file in a text editor, find the Firebase config block near the top, paste your values<br/>
+          5. Host the file on Netlify (drag &amp; drop at <a href="https://netlify.com" target="_blank" style={{color:'#005bb5'}}>netlify.com</a>) or GitHub Pages<br/>
+          6. Share the URL with all staff — everyone opens the same link
+        </div>
+      }
+      <div className="fg"><label className="flb">Google Apps Script Web App URL</label>
+        <input className="fi" value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://script.google.com/macros/s/AKfycb.../exec"/>
+      </div>
+      <div className="fr" style={{marginBottom:14}}>
+        <button className="btn bp" onClick={saveUrl}>💾 Save URL</button>
+        <button className="btn bs" onClick={testConn} disabled={testing}>{testing?'Testing…':'🔌 Test Connection'}</button>
+      </div>
+      {testResult&&<div className={`ab ${testResult.startsWith('ok:')?'ag':'ae'}`}>{testResult.slice(testResult.indexOf(':')+1)}</div>}
+      <hr className="divider"/>
+      <div style={{fontWeight:700,color:'#333',marginBottom:8,fontSize:13}}>📋 GAS Script to paste in Google Apps Script:</div>
+      <pre style={{background:'#f5f5f5',padding:14,borderRadius:6,fontSize:11,overflowX:'auto',border:'1px solid #e0e0e0',lineHeight:1.6}}>{`function doPost(e) {
+  var data = JSON.parse(e.postData.contents);
+  var ss = SpreadsheetApp.openById('YOUR_SHEET_ID');
+  
+  if (data.action === 'ping') {
+    return ContentService.createTextOutput(JSON.stringify({ok:true}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  if (data.action === 'upload') {
+    var folder = DriveApp.getFolderById('1GS_pPVVEaw1-YmuXYxPrHYATZuUFAaYn');
+    var bytes = Utilities.base64Decode(data.fileData);
+    var blob = Utilities.newBlob(bytes, data.fileType || 'application/octet-stream', data.fileName || 'attachment');
+    var file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return ContentService.createTextOutput(JSON.stringify({ok:true,url:file.getUrl(),id:file.getId()}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  if (data.action === 'save') {
+    var sheet = ss.getSheetByName('Data') || ss.insertSheet('Data');
+    sheet.clearContents();
+    sheet.getRange(1,1).setValue(JSON.stringify(data.payload));
+    return ContentService.createTextOutput(JSON.stringify({ok:true}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  if (data.action === 'load') {
+    var sheet = ss.getSheetByName('Data');
+    if (!sheet || sheet.getLastRow()===0) 
+      return ContentService.createTextOutput(JSON.stringify({ok:true,data:null}))
+        .setMimeType(ContentService.MimeType.JSON);
+    var val = sheet.getRange(1,1).getValue();
+    return ContentService.createTextOutput(JSON.stringify({ok:true,data:JSON.parse(val)}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}`}</pre>
+      <div className="ab aw" style={{marginTop:10,fontSize:12}}>Replace <strong>YOUR_SHEET_ID</strong> with the ID from your Google Sheet URL.</div>
+    </div>
+
+    {/* Backup / Restore */}
+    <div style={{background:'#fff',border:'1px solid #e0e0e0',borderRadius:10,padding:20}}>
+      <h3 style={{color:'#003580',marginBottom:14,fontSize:14}}>💾 Backup & Restore</h3>
+      <div className="fr">
+        <button className="btn bp" onClick={exportData}>⬇ Export Backup (JSON)</button>
+        <label className="btn bs" style={{cursor:'pointer'}}>
+          ⬆ Import Backup
+          <input type="file" accept=".json" onChange={importData} style={{display:'none'}}/>
+        </label>
+      </div>
+      <div style={{fontSize:12,color:'#888',marginTop:10}}>Export saves all letters to a JSON file. Import restores from a backup.</div>
+    </div>
+  </div>;
+}
+
+// ── APP ROOT ──────────────────────────────────────────────────────────────────
+function App(){
+  const [user,setUser]=useState(()=>ldSess());
+  const [page,setPage]=useState('dash');
+  const [state,setState]=useState(ldState);
+  const [allUsers,setAllUsers]=useState(ldUsers);
+  const [fs,setFS]=useState(undefined);
+  const [gasUrl,setGasUrl]=useState(ldGAS);
+  const [syncState,setSyncState]=useState('off');
+
+  const sv=n=>{setState(n);svState(n);fbSaveState(n).then(r=>{if(r?.ok)setSyncState('ok');else if(isFirebaseConfigured())setSyncState('off');});};
+  const uploadToDrive=async l=>{
+    if(!l.fd||!gasUrl)return l;
+    const r=await gasCall(gasUrl,'upload',{fileData:l.fd,fileName:l.fn,fileType:l.ft});
+    if(r?.ok&&r.url)return {...l,fu:r.url,fd:undefined};
+    alert('Google Drive වෙත ගොනුව උඩුගත කළ නොහැකි විය. දත්ත ගොනුව නොමැතිව සුරකින ලදී.');
+    return {...l,fd:undefined};
+  };
+  const addIn=async l=>{const n=await uploadToDrive(l);sv({...state,inL:[...state.inL,n],inC:state.inC+1});};
+  const updIn=(id,p)=>sv({...state,inL:state.inL.map(l=>l.id===id?{...l,...p}:l)});
+  const addOut=async l=>{const n=await uploadToDrive(l);sv({...state,outL:[...state.outL,n],outC:state.outC+1});};
+  const saveUsers=u=>{setAllUsers(u);svUsers(u);fbSaveUsers(u);};
+  const saveGAS=url=>{setGasUrl(url);svGAS(url);};
+  const saveState=s=>{setState(s);svState(s);};
+
+  const syncToGAS=useCallback(async(s)=>{
+    // Legacy GAS sync (kept for backwards compatibility)
+    const url=ldGAS();if(!url)return;
+    setSyncState('busy');
+    const r=await gasCall(url,'save',{payload:s});
+    setSyncState(r?.ok?'ok':'off');
+  },[]);
+
+  // Load from Firebase on startup + subscribe to real-time updates
+  useEffect(()=>{
+    let unsubscribe=()=>{};
+    (async()=>{
+      if(isFirebaseConfigured()){
+        setSyncState('busy');
+        // Load users from Firebase first
+        const ur=await fbLoadUsers();
+        if(ur?.ok&&ur.data){setAllUsers(ur.data);svUsers(ur.data);}
+        // Load letters state
+        const r=await fbLoadState();
+        if(r?.ok&&r.data){setState(r.data);svState(r.data);setSyncState('ok');}
+        else setSyncState('off');
+        // Subscribe for real-time updates from other devices
+        unsubscribe=fbSubscribeState((data)=>{
+          setState(data);svState(data);setSyncState('ok');
+        });
+      } else if(gasUrl){
+        setSyncState('busy');
+        const r=await gasCall(gasUrl,'load',{});
+        if(r?.ok&&r.data){setState(r.data);svState(r.data);setSyncState('ok');}
+        else setSyncState('off');
+      }
+    })();
+    return ()=>unsubscribe();
+  },[]);
+
+  const login=u=>{setUser(u);svSess(u);setPage('dash');};
+  const logout=()=>{setUser(null);svSess(null);setPage('dash');};
+
+  if(!user)return <LoginPage onLogin={login}/>;
+
+  return <div style={{minHeight:'100vh',background:'#f0f2f7'}}>
+    <TopNav user={user} page={page} setPage={p=>{setPage(p);setFS(undefined);}} onLogout={logout} gasUrl={gasUrl} syncState={syncState}/>
+    <div style={{maxWidth:1280,margin:'0 auto',padding:'18px 14px'}}>
+      <div style={{background:'#fff',borderRadius:10,boxShadow:'0 2px 12px rgba(0,0,0,.08)',padding:'20px 22px',minHeight:400}}>
+        {page==='dash'&&<><h2 style={{margin:'0 0 16px',color:'#003580',fontSize:16,fontWeight:800}}>🏠 Dashboard</h2><Dashboard user={user} state={state} setPage={setPage} setFS={setFS}/></>}
+        {page==='in'&&<><h2 style={{margin:'0 0 14px',color:'#003580',fontSize:16,fontWeight:800}}>📥 Incoming Letters</h2><InPage user={user} state={state} onAdd={addIn} onUpd={updIn} fs={fs} setFS={setFS} allUsers={allUsers}/></>}
+        {page==='out'&&!['STO','TO'].includes(user.r)&&<><h2 style={{margin:'0 0 14px',color:'#003580',fontSize:16,fontWeight:800}}>📤 Outgoing Letters</h2><OutPage user={user} state={state} onAdd={addOut} allUsers={allUsers}/></>}
+        {page==='rep'&&['DE','CC'].includes(user.r)&&<><h2 style={{margin:'0 0 14px',color:'#003580',fontSize:16,fontWeight:800}}>📊 Reports</h2><RepPage state={state} allUsers={allUsers}/></>}
+        {page==='users'&&user.r==='DE'&&<><h2 style={{margin:'0 0 14px',color:'#003580',fontSize:16,fontWeight:800}}>👥 User Management</h2><UsersPage allUsers={allUsers} onSaveUsers={saveUsers}/></>}
+        {page==='settings'&&user.r==='DE'&&<><h2 style={{margin:'0 0 14px',color:'#003580',fontSize:16,fontWeight:800}}>⚙️ Settings</h2><SettingsPage gasUrl={gasUrl} onSaveGAS={saveGAS} state={state} onSaveState={saveState}/></>}
+      </div>
+    </div>
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
