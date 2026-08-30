@@ -131,7 +131,7 @@ const {useState,useEffect,useRef,useCallback}=React;
 // Once configured, all data syncs automatically across all devices.
 const DEFAULT_GAS_URL="https://script.google.com/macros/s/AKfycbw-gGsCbkZct8u6QA65hJKHlYcj6XTf8-HzlPB1irPLQuGNX6YItEwhSFOe8W4UeE-b/exec"; // Google Drive + Sheets sync backend
 
-const DRIVE="https://drive.google.com/drive/folders/1GS_pPVVEaw1-YmuXYxPrHYATZuUFAaYn";
+const DRIVE="https://drive.google.com/drive/folders/1k85Zb_yZoL9aGYQ9RZQhspQrnNjXW_Sb";
 const SK="de_batt_lms_v5";
 const SSK="de_batt_sess_v5";
 const USERS_KEY="de_batt_users_v5";
@@ -859,7 +859,7 @@ function SettingsPage({gasUrl,onSaveGAS,state,onSaveState}){
       .setMimeType(ContentService.MimeType.JSON);
   }
   if (data.action === 'upload') {
-    var folder = DriveApp.getFolderById('1GS_pPVVEaw1-YmuXYxPrHYATZuUFAaYn');
+    var folder = DriveApp.getFolderById('1k85Zb_yZoL9aGYQ9RZQhspQrnNjXW_Sb');
     var bytes = Utilities.base64Decode(data.fileData);
     var blob = Utilities.newBlob(bytes, data.fileType || 'application/octet-stream', data.fileName || 'attachment');
     var file = folder.createFile(blob);
