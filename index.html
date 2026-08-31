@@ -539,6 +539,9 @@ function InModal({letter,user,onClose,onUpdate,allUsers}){
   const [editN,setEditN]=useState(false);
   const [showA,setShowA]=useState(false);
   const [newA,setNewA]=useState(letter.asgn.map(a=>a.u));
+  const [showEdit,setShowEdit]=useState(false);
+  const [editSaving,setEditSaving]=useState(false);
+  const [editF,setEditF]=useState({dr:letter.dr||'',from:letter.from||'',to:letter.to||'',subj:letter.subj||'',desc:letter.desc||''});
   const isDE=user.r==='DE',isCC=user.r==='CC';
   const assignable=allUsers.filter(u=>u.active&&u.u!=='DE');
 
@@ -563,6 +566,18 @@ function InModal({letter,user,onClose,onUpdate,allUsers}){
     const asgn=newA.map(u=>({u,d:allUsers.find(x=>x.u===u).d,s:letter.asgn.find(a=>a.u===u)?.s||'pending',seen:letter.asgn.find(a=>a.u===u)?.seen||null}));
     onUpdate(letter.id,{asgn});setShowA(false);
   };
+  const openEditDetails=()=>{
+    setEditF({dr:letter.dr||'',from:letter.from||'',to:letter.to||'',subj:letter.subj||'',desc:letter.desc||''});
+    setShowEdit(true);
+  };
+  const saveDetails=async()=>{
+    if(!editF.dr||!editF.from.trim()||!editF.subj.trim()){alert('Date, From and Subject are required.');return;}
+    setEditSaving(true);
+    try{
+      const r=await onUpdate(letter.id,{dr:editF.dr,from:editF.from.trim(),to:editF.to.trim()||'DE',subj:editF.subj.trim(),desc:editF.desc});
+      if(r?.ok)setShowEdit(false);
+    }finally{setEditSaving(false);}
+  };
   const my=letter.asgn.find(a=>a.u===user.u);
   const canEdit=my&&letter.status!=='pending_de';
 
@@ -576,6 +591,10 @@ function InModal({letter,user,onClose,onUpdate,allUsers}){
     <Fld l="Subject" v={letter.subj}/>
     {letter.desc&&<Fld l="Description" v={letter.desc}/>}
     <FView fd={letter.fd} fn={letter.fn} ft={letter.ft} fu={letter.fu} files={letter.files}/>
+    {isCC&&<div style={{marginTop:13}}>
+      <button className="btn bp" onClick={openEditDetails}>✏️ Edit Incoming Letter Details</button>
+      <div style={{fontSize:11,color:'#777',marginTop:5}}>Reference, upload date, uploader, files, status and assignments remain unchanged.</div>
+    </div>}
 
     {(isDE||letter.note)&&<div className="na">
       <div style={{fontWeight:700,color:'#003580',marginBottom:7,fontSize:13}}>📝 DE Note / Instructions</div>
@@ -615,6 +634,21 @@ function InModal({letter,user,onClose,onUpdate,allUsers}){
       {letter.status==='pending_de'&&<button className="btn bg" onClick={approve}>✅ Approve & DE Reviewed</button>}
     </div>}
     {isDE&&letter.status==='pending_de'&&<div className="ab aw" style={{marginTop:12}}><strong>⚡ Action Required:</strong> Review, add note, then Approve.</div>}
+
+    {showEdit&&<Mod title={'✏️ Edit Incoming Letter – '+letter.ref} onClose={()=>{if(!editSaving)setShowEdit(false);}}>
+      <div className="g2">
+        <div className="fg"><label className="flb">Date Received *</label><input type="date" className="fi" value={editF.dr} onChange={e=>setEditF(x=>({...x,dr:e.target.value}))}/></div>
+        <div className="fg"><label className="flb">To</label><input className="fi" value={editF.to} onChange={e=>setEditF(x=>({...x,to:e.target.value}))}/></div>
+        <div className="fg" style={{gridColumn:'span 2'}}><label className="flb">From *</label><input className="fi" value={editF.from} onChange={e=>setEditF(x=>({...x,from:e.target.value}))}/></div>
+        <div className="fg" style={{gridColumn:'span 2'}}><label className="flb">Subject *</label><input className="fi" value={editF.subj} onChange={e=>setEditF(x=>({...x,subj:e.target.value}))}/></div>
+      </div>
+      <div className="fg"><label className="flb">Description</label><textarea className="fi" style={{height:90,resize:'vertical'}} value={editF.desc} onChange={e=>setEditF(x=>({...x,desc:e.target.value}))}/></div>
+      <div className="ab ai">Only the letter details above will change. Reference number, uploaded date, uploader, attachments, status and assignments are protected.</div>
+      <div className="fr" style={{justifyContent:'flex-end'}}>
+        <button className="btn bs" onClick={()=>setShowEdit(false)} disabled={editSaving}>Cancel</button>
+        <button className="btn bp" onClick={saveDetails} disabled={editSaving}>{editSaving?'Saving…':'Save Changes'}</button>
+      </div>
+    </Mod>}
 
     {showA&&<Mod title="Manage Assignees" onClose={()=>setShowA(false)}>
       <div style={{display:'flex',flexWrap:'wrap'}}>
