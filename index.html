@@ -688,7 +688,7 @@ function InPage({user,state,onAdd,onUpd,onDelete,fs,setFS,allUsers}){
   useEffect(()=>{if(fs!==undefined){setSf2(fs);setFS(undefined);}},[fs]);
   const isDE=user.r==='DE',isCC=user.r==='CC',isAdmin=isDE||isCC,isST=['STO','TO'].includes(user.r);
   const assignable=allUsers.filter(u=>u.active&&u.u!=='DE');
-  let ls=state.inL;
+  let ls=[...state.inL].sort((a,b)=>new Date(b.du||b.dr||0)-new Date(a.du||a.dr||0));
   if(isST) ls=ls.filter(l=>l.asgn.some(a=>a.u===user.u)&&l.status!=='pending_de');
   else if(!isAdmin) ls=ls.filter(l=>l.asgn.some(a=>a.u===user.u));
   if(srch) ls=ls.filter(l=>l.ref.toLowerCase().includes(srch.toLowerCase())||l.subj.toLowerCase().includes(srch.toLowerCase())||l.from.toLowerCase().includes(srch.toLowerCase()));
@@ -742,7 +742,7 @@ function OutPage({user,state,onAdd,onDelete,allUsers}){
   const [sel,setSel]=useState(null);const [showUp,setShowUp]=useState(false);
   const [srch,setSrch]=useState('');const [df,setDf]=useState('');const [dt,setDt]=useState('');
   const isAdmin=['DE','CC'].includes(user.r);
-  let ls=state.outL;
+  let ls=[...state.outL].sort((a,b)=>new Date(b.du||b.ds||0)-new Date(a.du||a.ds||0));
   if(!isAdmin) ls=ls.filter(l=>l.by===user.u);
   if(srch) ls=ls.filter(l=>l.ref.toLowerCase().includes(srch.toLowerCase())||l.subj.toLowerCase().includes(srch.toLowerCase()));
   if(df) ls=ls.filter(l=>l.ds>=df);if(dt) ls=ls.filter(l=>l.ds<=dt);
