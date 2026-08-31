@@ -534,7 +534,7 @@ function UpOutForm({user,onClose,state,onSave}){
 }
 
 // ── IN LETTER MODAL ───────────────────────────────────────────────────────────
-function InModal({letter,user,onClose,onUpdate,allUsers}){
+function InModal({letter,user,onClose,onUpdate,onEditDetails,allUsers}){
   const [note,setNote]=useState(letter.note||'');
   const [editN,setEditN]=useState(false);
   const [showA,setShowA]=useState(false);
@@ -542,6 +542,8 @@ function InModal({letter,user,onClose,onUpdate,allUsers}){
   const [showEdit,setShowEdit]=useState(false);
   const [editSaving,setEditSaving]=useState(false);
   const [editF,setEditF]=useState({dr:letter.dr||'',from:letter.from||'',to:letter.to||'',subj:letter.subj||'',desc:letter.desc||''});
+  const [editKeptFiles,setEditKeptFiles]=useState([]);
+  const [editNewFiles,setEditNewFiles,handleEditNewFiles]=useFiles();
   const isDE=user.r==='DE',isCC=user.r==='CC';
   const assignable=allUsers.filter(u=>u.active&&u.u!=='DE');
 
@@ -567,14 +569,20 @@ function InModal({letter,user,onClose,onUpdate,allUsers}){
     onUpdate(letter.id,{asgn});setShowA(false);
   };
   const openEditDetails=()=>{
+    const currentFiles=Array.isArray(letter.files)&&letter.files.length
+      ?letter.files
+      :((letter.fu||letter.fd)?[{name:letter.fn||'Attachment',type:letter.ft||'',url:letter.fu,data:letter.fd}]:[]);
     setEditF({dr:letter.dr||'',from:letter.from||'',to:letter.to||'',subj:letter.subj||'',desc:letter.desc||''});
+    setEditKeptFiles(currentFiles);
+    setEditNewFiles([]);
     setShowEdit(true);
   };
   const saveDetails=async()=>{
     if(!editF.dr||!editF.from.trim()||!editF.subj.trim()){alert('Date, From and Subject are required.');return;}
+    if(editKeptFiles.length+editNewFiles.length>20){alert('එක letter එකකට photos/files 20ක් දක්වා තබාගත හැකියි.');return;}
     setEditSaving(true);
     try{
-      const r=await onUpdate(letter.id,{dr:editF.dr,from:editF.from.trim(),to:editF.to.trim()||'DE',subj:editF.subj.trim(),desc:editF.desc});
+      const r=await onEditDetails(letter.id,{dr:editF.dr,from:editF.from.trim(),to:editF.to.trim()||'DE',subj:editF.subj.trim(),desc:editF.desc},editKeptFiles,editNewFiles);
       if(r?.ok)setShowEdit(false);
     }finally{setEditSaving(false);}
   };
@@ -593,7 +601,7 @@ function InModal({letter,user,onClose,onUpdate,allUsers}){
     <FView fd={letter.fd} fn={letter.fn} ft={letter.ft} fu={letter.fu} files={letter.files}/>
     {isCC&&<div style={{marginTop:13}}>
       <button className="btn bp" onClick={openEditDetails}>✏️ Edit Incoming Letter Details</button>
-      <div style={{fontSize:11,color:'#777',marginTop:5}}>Reference, upload date, uploader, files, status and assignments remain unchanged.</div>
+      <div style={{fontSize:11,color:'#777',marginTop:5}}>CC can edit letter details and attachments. Reference, upload date, uploader, status and assignments remain unchanged.</div>
     </div>}
 
     {(isDE||letter.note)&&<div className="na">
@@ -643,7 +651,37 @@ function InModal({letter,user,onClose,onUpdate,allUsers}){
         <div className="fg" style={{gridColumn:'span 2'}}><label className="flb">Subject *</label><input className="fi" value={editF.subj} onChange={e=>setEditF(x=>({...x,subj:e.target.value}))}/></div>
       </div>
       <div className="fg"><label className="flb">Description</label><textarea className="fi" style={{height:90,resize:'vertical'}} value={editF.desc} onChange={e=>setEditF(x=>({...x,desc:e.target.value}))}/></div>
-      <div className="ab ai">Only the letter details above will change. Reference number, uploaded date, uploader, attachments, status and assignments are protected.</div>
+      <div className="fg">
+        <label className="flb">Current Attachments ({editKeptFiles.length})</label>
+        {editKeptFiles.length===0?<div style={{fontSize:12,color:'#888',padding:'8px 0'}}>No current attachments.</div>:
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:8,marginTop:6}}>
+          {editKeptFiles.map((x,i)=><div key={x.id||x.url||i} style={{border:'1px solid #d8dfeb',borderRadius:7,padding:8,background:'#fff'}}>
+            <div style={{fontSize:25,textAlign:'center'}}>{String(x.type||'').startsWith('image/')?'🖼️':'📄'}</div>
+            <div title={x.name} style={{fontSize:10,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',margin:'4px 0 7px'}}>{x.name||'Attachment '+(i+1)}</div>
+            <div className="fr" style={{justifyContent:'space-between',gap:4}}>
+              {(x.url||x.data)&&<a className="btn bs bsm" href={x.url||`data:${x.type};base64,${x.data}`} target="_blank" rel="noreferrer">Open</a>}
+              <button type="button" className="btn br bsm" onClick={()=>setEditKeptFiles(xs=>xs.filter((_,j)=>j!==i))}>Remove</button>
+            </div>
+          </div>)}
+        </div>}
+        <div style={{fontSize:11,color:'#777',marginTop:6}}>Remove කිරීමෙන් file එක letter record එකෙන් පමණක් ඉවත් වේ; Google Drive original file එක delete නොවේ.</div>
+      </div>
+      <div className="fg">
+        <label className="flb">Add New Photos / Documents ({editKeptFiles.length+editNewFiles.length}/20)</label>
+        <div className="fr" style={{marginTop:6}}>
+          <label className="btn bg" style={{cursor:'pointer'}}>📷 Take Photo<input type="file" accept="image/*" capture="environment" onChange={handleEditNewFiles} style={{display:'none'}}/></label>
+          <label className="btn bs" style={{cursor:'pointer'}}>🖼 Choose Multiple<input type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" onChange={handleEditNewFiles} style={{display:'none'}}/></label>
+        </div>
+        <div style={{fontSize:11,color:'#777',marginTop:6}}>Camera button එක නැවත භාවිතා කර photos කිහිපයක් එකතු කළ හැකියි.</div>
+        {editNewFiles.length>0&&<div style={{marginTop:9,display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(120px,1fr))',gap:8}}>
+          {editNewFiles.map((x,i)=><div key={i} style={{border:'1px solid #d8dfeb',borderRadius:7,padding:6,background:'#fff',position:'relative'}}>
+            {x.type?.startsWith('image/')?<img src={`data:${x.type};base64,${x.data}`} alt={x.name} style={{width:'100%',height:80,objectFit:'cover',borderRadius:5}}/>:<div style={{height:55,display:'flex',alignItems:'center',justifyContent:'center',fontSize:28}}>📄</div>}
+            <div title={x.name} style={{fontSize:10,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginTop:4}}>{x.name}</div>
+            <button type="button" onClick={()=>setEditNewFiles(xs=>xs.filter((_,j)=>j!==i))} style={{position:'absolute',top:2,right:2,border:'none',borderRadius:'50%',background:'#c0392b',color:'#fff',width:22,height:22}}>×</button>
+          </div>)}
+        </div>}
+      </div>
+      <div className="ab ai">Reference number, uploaded date, uploader, status and assignments remain protected.</div>
       <div className="fr" style={{justifyContent:'flex-end'}}>
         <button className="btn bs" onClick={()=>setShowEdit(false)} disabled={editSaving}>Cancel</button>
         <button className="btn bp" onClick={saveDetails} disabled={editSaving}>{editSaving?'Saving…':'Save Changes'}</button>
@@ -712,7 +750,7 @@ function Dashboard({user,state,setPage,setFS}){
 }
 
 // ── IN LETTERS PAGE ───────────────────────────────────────────────────────────
-function InPage({user,state,onAdd,onUpd,onDelete,fs,setFS,allUsers}){
+function InPage({user,state,onAdd,onUpd,onEditDetails,onDelete,fs,setFS,allUsers}){
   const [sel,setSel]=useState(null);
   const [showUp,setShowUp]=useState(false);
   const [srch,setSrch]=useState('');
@@ -765,7 +803,7 @@ function InPage({user,state,onAdd,onUpd,onDelete,fs,setFS,allUsers}){
         </tr>;
       })}</tbody>
     </table></div>}
-    {sel&&<InModal letter={state.inL.find(l=>l.id===sel.id)||sel} user={user} onClose={()=>setSel(null)} onUpdate={(id,p)=>onUpd(id,p)} allUsers={allUsers}/>}
+    {sel&&<InModal letter={state.inL.find(l=>l.id===sel.id)||sel} user={user} onClose={()=>setSel(null)} onUpdate={(id,p)=>onUpd(id,p)} onEditDetails={onEditDetails} allUsers={allUsers}/>}
     {showUp&&<Mod title="Upload Incoming Letter" onClose={()=>setShowUp(false)}>
       <UpInForm user={user} onClose={()=>setShowUp(false)} state={state} onSave={onAdd} allUsers={allUsers}/>
     </Mod>}
@@ -1063,7 +1101,7 @@ function App(){
       return r;
     }finally{syncingRef.current=false;}
   };
-  const uploadToDrive=async l=>{
+  const uploadToDrive=async(l,startIndex=0)=>{
     const pending=Array.isArray(l.files)&&l.files.length?l.files:(l.fd?[{data:l.fd,name:l.fn,type:l.ft}]:[]);
     if(!pending.length||!gasUrl)return l;
     const uploaded=[];
@@ -1073,7 +1111,7 @@ function App(){
       const file=pending[i];
       const originalExt=(String(file.name||'').match(/\.([A-Za-z0-9]+)$/)||[])[1]||'bin';
       const ext=String(file.type||'').startsWith('image/')?'jpg':originalExt.toLowerCase();
-      const standardName=`${letterDate}_${safeRef}_${String(i+1).padStart(2,'0')}.${ext}`;
+      const standardName=`${letterDate}_${safeRef}_${String(startIndex+i+1).padStart(2,'0')}.${ext}`;
       const r=await gasCall(gasUrl,'upload',{fileData:file.data,fileName:standardName,fileType:file.type},30000);
       if(r?.ok&&r.url)uploaded.push({name:r.name||standardName,type:file.type,url:r.url,id:r.id,size:file.size,originalSize:file.originalSize});
     }
@@ -1091,6 +1129,27 @@ function App(){
     }finally{syncingRef.current=false;}
   };
   const updIn=(id,p)=>{const base=stateRef.current;return sv({...base,inL:base.inL.map(l=>l.id===id?{...l,...p,_syncUpdatedAt:Date.now()}:l)});};
+  const editInDetails=async(id,patch,keptFiles,newFiles)=>{
+    syncingRef.current=true;setSyncState('busy');
+    try{
+      const current=stateRef.current.inL.find(l=>l.id===id);
+      if(!current){alert('Letter record එක සොයාගත නොහැකි විය.');return null;}
+      const originalFiles=Array.isArray(current.files)&&current.files.length
+        ?current.files
+        :((current.fu||current.fd)?[{name:current.fn||'Attachment',type:current.ft||'',url:current.fu,data:current.fd}]:[]);
+      let uploaded=[];
+      if(newFiles?.length){
+        const staged=await uploadToDrive({...current,...patch,files:newFiles},originalFiles.length);
+        uploaded=Array.isArray(staged.files)?staged.files:[];
+      }
+      const files=[...(keptFiles||[]),...uploaded];
+      const first=files[0]||{};
+      const base=stateRef.current;
+      const latest=base.inL.find(l=>l.id===id)||current;
+      const updated={...latest,...patch,files,fn:first.name,ft:first.type,fu:first.url,fd:undefined,_syncUpdatedAt:Date.now()};
+      return await sv({...base,inL:base.inL.map(l=>l.id===id?updated:l)});
+    }finally{syncingRef.current=false;}
+  };
   const addOut=async l=>{
     syncingRef.current=true;setSyncState('busy');
     try{
@@ -1180,7 +1239,7 @@ function App(){
     <div style={{maxWidth:1280,margin:'0 auto',padding:'18px 14px'}}>
       <div style={{background:'#fff',borderRadius:10,boxShadow:'0 2px 12px rgba(0,0,0,.08)',padding:'20px 22px',minHeight:400}}>
         {page==='dash'&&<><h2 style={{margin:'0 0 16px',color:'#003580',fontSize:16,fontWeight:800}}>🏠 Dashboard</h2><Dashboard user={user} state={state} setPage={setPage} setFS={setFS}/></>}
-        {page==='in'&&<><h2 style={{margin:'0 0 14px',color:'#003580',fontSize:16,fontWeight:800}}>📥 Incoming Letters</h2><InPage user={user} state={state} onAdd={addIn} onUpd={updIn} onDelete={deleteLetter} fs={fs} setFS={setFS} allUsers={allUsers}/></>}
+        {page==='in'&&<><h2 style={{margin:'0 0 14px',color:'#003580',fontSize:16,fontWeight:800}}>📥 Incoming Letters</h2><InPage user={user} state={state} onAdd={addIn} onUpd={updIn} onEditDetails={editInDetails} onDelete={deleteLetter} fs={fs} setFS={setFS} allUsers={allUsers}/></>}
         {page==='out'&&!['STO','TO'].includes(user.r)&&<><h2 style={{margin:'0 0 14px',color:'#003580',fontSize:16,fontWeight:800}}>📤 Outgoing Letters</h2><OutPage user={user} state={state} onAdd={addOut} onDelete={deleteLetter} allUsers={allUsers}/></>}
         {page==='rep'&&['DE','CC'].includes(user.r)&&<><h2 style={{margin:'0 0 14px',color:'#003580',fontSize:16,fontWeight:800}}>📊 Reports</h2><RepPage state={state} allUsers={allUsers}/></>}
         {page==='users'&&user.r==='DE'&&<><h2 style={{margin:'0 0 14px',color:'#003580',fontSize:16,fontWeight:800}}>👥 User Management</h2><UsersPage allUsers={allUsers} onSaveUsers={saveUsers}/></>}
