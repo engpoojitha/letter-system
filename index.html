@@ -891,34 +891,50 @@ function UsersPage({allUsers,onSaveUsers}){
   const [msg,setMsg]=useState('');
   const [pwdModal,setPwdModal]=useState(null); // user being changed password
   const [newPwd,setNewPwd]=useState('');
+  const [saving,setSaving]=useState(false);
   useEffect(()=>setUsers(allUsers),[allUsers]);
 
-  const saveAll=(u,mutation)=>{setUsers(u);onSaveUsers(u,mutation);};
-  const toggleActive=(username)=>{
-    if(username==='DE'){alert('Cannot deactivate DE.');return;}
-    saveAll(users.map(u=>u.u===username?{...u,active:!u.active}:u),{type:'toggle',username});
+  const saveAll=async(u,mutation)=>{
+    setSaving(true);setMsg('');
+    try{
+      const saved=await onSaveUsers(u,mutation);
+      if(Array.isArray(saved)){setUsers(saved);return true;}
+      setMsg('User change save කළ නොහැකි විය. නැවත DE account එකෙන් sign in කර උත්සාහ කරන්න.');
+      return false;
+    }catch(e){
+      console.warn('User save error:',e);
+      setMsg('User change save කළ නොහැකි විය. Internet connection එක පරීක්ෂා කරන්න.');
+      return false;
+    }finally{setSaving(false);}
   };
-  const deleteUser=(username)=>{
+  const toggleActive=async(username)=>{
+    if(username==='DE'){alert('Cannot deactivate DE.');return;}
+    await saveAll(users.map(u=>u.u===username?{...u,active:!u.active}:u),{type:'toggle',username});
+  };
+  const deleteUser=async(username)=>{
     if(username==='DE'){alert('Cannot delete DE.');return;}
     if(!confirm(`Delete user ${username}?`))return;
-    saveAll(users.filter(u=>u.u!==username),{type:'delete',username});
+    await saveAll(users.filter(u=>u.u!==username),{type:'delete',username});
   };
-  const addUser=()=>{
+  const addUser=async()=>{
     if(!newU.u||!newU.p||!newU.d){setMsg('Fill all fields.');return;}
-    if(users.find(u=>u.u===newU.u.toUpperCase())){setMsg('Username already exists.');return;}
-    saveAll([...users,{...newU,u:newU.u.toUpperCase(),active:true}],{type:'add',user:{...newU,u:newU.u.toUpperCase(),active:true}});
-    setNewU({u:'',p:'',d:'',r:'MO',active:true});setShowAdd(false);setMsg('');
+    if(newU.p.length<4){setMsg('Password must be at least 4 characters.');return;}
+    const username=newU.u.trim().toUpperCase();
+    if(users.find(u=>u.u===username)){setMsg('Username already exists.');return;}
+    const userToAdd={...newU,u:username,d:newU.d.trim(),active:true};
+    const ok=await saveAll([...users,userToAdd],{type:'add',user:userToAdd});
+    if(ok){setNewU({u:'',p:'',d:'',r:'MO',active:true});setShowAdd(false);setMsg('');}
   };
-  const changePwd=()=>{
+  const changePwd=async()=>{
     if(!newPwd||newPwd.length<4){setMsg('Password must be at least 4 characters.');return;}
-    saveAll(users.map(u=>u.u===pwdModal.u?{...u,p:'********'}:u),{type:'password',username:pwdModal.u,password:newPwd});
-    setPwdModal(null);setNewPwd('');setMsg('');
+    const ok=await saveAll(users,{type:'password',username:pwdModal.u,password:newPwd});
+    if(ok){setPwdModal(null);setNewPwd('');setMsg('');}
   };
 
   return <div>
     <div className="fr" style={{justifyContent:'space-between',marginBottom:14}}>
       <div style={{fontSize:13,color:'#666'}}>{users.filter(u=>u.active).length} active / {users.length} total users</div>
-      <button className="btn bp" onClick={()=>setShowAdd(true)}>+ Add User</button>
+      <button className="btn bp" disabled={saving} onClick={()=>setShowAdd(true)}>{saving?'Saving…':'+ Add User'}</button>
     </div>
     {msg&&<div className="ab ae" style={{marginBottom:10}}>{msg}</div>}
     <div className="tw"><table>
@@ -931,10 +947,10 @@ function UsersPage({allUsers,onSaveUsers}){
         <td><span style={{fontSize:12,fontWeight:600,color:u.active?'#27ae60':'#e74c3c'}}>{u.active?'Active':'Inactive'}</span></td>
         <td>
           <div className="fr">
-            <button className="btn bp bsm" onClick={()=>setPwdModal(u)}>🔑 Password</button>
+            <button className="btn bp bsm" disabled={saving} onClick={()=>setPwdModal(u)}>🔑 Password</button>
             {u.u!=='DE'&&<>
-              <button className="btn bsm" style={{background:u.active?'#e67e22':'#27ae60',color:'#fff'}} onClick={()=>toggleActive(u.u)}>{u.active?'Deactivate':'Activate'}</button>
-              <button className="btn br bsm" onClick={()=>deleteUser(u.u)}>🗑</button>
+              <button className="btn bsm" disabled={saving} style={{background:u.active?'#e67e22':'#27ae60',color:'#fff'}} onClick={()=>toggleActive(u.u)}>{u.active?'Deactivate':'Activate'}</button>
+              <button className="btn br bsm" disabled={saving} onClick={()=>deleteUser(u.u)}>🗑</button>
             </>}
           </div>
         </td>
@@ -944,7 +960,7 @@ function UsersPage({allUsers,onSaveUsers}){
     {showAdd&&<Mod title="Add New User" onClose={()=>{setShowAdd(false);setMsg('');}}>
       <div className="g2">
         <div className="fg"><label className="flb">Username *</label><input className="fi" value={newU.u} onChange={e=>setNewU(x=>({...x,u:e.target.value.toUpperCase()}))} placeholder="e.g. MO5"/></div>
-        <div className="fg"><label className="flb">Password *</label><input className="fi" value={newU.p} onChange={e=>setNewU(x=>({...x,p:e.target.value}))} placeholder="min 4 chars"/></div>
+        <div className="fg"><label className="flb">Password *</label><input className="fi" type="password" disabled={saving} value={newU.p} onChange={e=>setNewU(x=>({...x,p:e.target.value}))} placeholder="min 4 chars"/></div>
         <div className="fg" style={{gridColumn:'span 2'}}><label className="flb">Display Name *</label><input className="fi" value={newU.d} onChange={e=>setNewU(x=>({...x,d:e.target.value}))} placeholder="e.g. Management Officer 5"/></div>
         <div className="fg"><label className="flb">Role *</label>
           <select className="fi" value={newU.r} onChange={e=>setNewU(x=>({...x,r:e.target.value}))}>
@@ -955,7 +971,7 @@ function UsersPage({allUsers,onSaveUsers}){
       {msg&&<div className="ab ae">{msg}</div>}
       <div className="fr" style={{justifyContent:'flex-end',marginTop:8}}>
         <button className="btn bs" onClick={()=>{setShowAdd(false);setMsg('');}}>Cancel</button>
-        <button className="btn bg" onClick={addUser}>✅ Add User</button>
+        <button className="btn bg" disabled={saving} onClick={addUser}>{saving?'⏳ Saving…':'✅ Add User'}</button>
       </div>
     </Mod>}
 
@@ -964,7 +980,7 @@ function UsersPage({allUsers,onSaveUsers}){
       {msg&&<div className="ab ae">{msg}</div>}
       <div className="fr" style={{justifyContent:'flex-end',marginTop:8}}>
         <button className="btn bs" onClick={()=>{setPwdModal(null);setNewPwd('');setMsg('');}}>Cancel</button>
-        <button className="btn bg" onClick={changePwd}>✅ Save Password</button>
+        <button className="btn bg" disabled={saving} onClick={changePwd}>{saving?'⏳ Saving…':'✅ Save Password'}</button>
       </div>
     </Mod>}
   </div>;
@@ -1171,11 +1187,15 @@ function App(){
     }finally{syncingRef.current=false;}
   };
   const saveUsers=async(u,mutation)=>{
-    if(!user?.token){alert('DE session expired. නැවත login කරන්න.');logout();return false;}
+    if(!user?.token){alert('DE session expired. නැවත login කරන්න.');logout();return null;}
     const r=await gasCall(gasUrl,'adminUsers',{token:user.token,mutation});
-    if(r?.ok&&r.data){setAllUsers(r.data);svUsers(r.data);return true;}
-    alert(r?.error||'User change save කළ නොහැකි විය.');
-    return false;
+    if(r?.ok&&Array.isArray(r.data)){setAllUsers(r.data);svUsers(r.data);return r.data;}
+    const error=r?.error||'User change save කළ නොහැකි විය.';
+    if(String(error).includes('DE authorization')){
+      alert('DE session expired. ආරක්ෂාව සඳහා නැවත DE account එකෙන් sign in කරන්න.');
+      logout();
+    }else alert(error);
+    return null;
   };
   const saveGAS=url=>{setGasUrl(url);svGAS(url);};
   const saveState=s=>sv(s);
